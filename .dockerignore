@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+.env.*
+.idea
+.vscode
+.agents
+.codex
+.aws
+target
+build
+docs
+*.log
+*.iml
+HELP.md
+mvnw.cmd

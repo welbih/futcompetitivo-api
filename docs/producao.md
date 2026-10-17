@@ -85,3 +85,25 @@ java -jar target/futcompetitivo-api-0.0.1-SNAPSHOT.jar
 Use Java 25. O profile `prod` é uma configuração de runtime do Spring, sem
 necessidade de um profile Maven separado. A configuração não adiciona autenticação
 ou autorização aos endpoints da API.
+
+## Docker e Railway
+
+O Dockerfile compila o projeto com o Maven Wrapper e JDK 25, depois copia apenas
+o JAR executável para uma imagem com JRE 25. O processo usa um usuário sem
+privilégios e ativa `prod` por padrão. As credenciais não entram na imagem.
+Os testes não são executados durante o build Docker; execute a suíte antes do deploy.
+
+```powershell
+docker build -t futcompetitivo-api .
+docker run --rm --env-file .env -p 8080:8080 futcompetitivo-api
+```
+
+No comando Docker, mantenha a sintaxe `CHAVE=valor` do `.env`; o Docker injeta
+os valores no ambiente do container. O host `localhost` dentro do container se
+refere ao próprio container, portanto `DB_URL` deve apontar para um PostgreSQL
+acessível a partir dele. A porta externa deve corresponder ao `PORT` configurado.
+
+No Railway, conecte o repositório e o Dockerfile na raiz será utilizado no build.
+Configure `DB_URL`, `DB_USERNAME` e `DB_PASSWORD` nas variáveis do serviço da API,
+usando o PostgreSQL do projeto. A porta dinâmica é lida da variável `PORT`.
+`APP_PROFILE=prod` já é o padrão da imagem e pode ser configurado explicitamente.
