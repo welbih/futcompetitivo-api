@@ -107,3 +107,23 @@ No Railway, conecte o repositório e o Dockerfile na raiz será utilizado no bui
 Configure `DB_URL`, `DB_USERNAME` e `DB_PASSWORD` nas variáveis do serviço da API,
 usando o PostgreSQL do projeto. A porta dinâmica é lida da variável `PORT`.
 `APP_PROFILE=prod` já é o padrão da imagem e pode ser configurado explicitamente.
+
+## Healthcheck
+
+O Spring Boot Actuator disponibiliza `GET /actuator/health` na mesma porta da API,
+incluindo a verificação de conexão com o banco. Quando saudável, retorna HTTP 200:
+
+```json
+{ "status": "UP" }
+```
+
+A resposta também pode listar os nomes dos grupos `liveness` e `readiness`,
+sem expor detalhes dos componentes.
+
+Se um indicador reportar `DOWN` ou `OUT_OF_SERVICE`, o endpoint retorna HTTP 503.
+Quando a aplicação não consegue iniciar (por exemplo, falha nas migrações), ela
+não fica disponível para responder ao healthcheck. Detalhes internos e componentes
+não são expostos. Somente `health` está exposto entre os endpoints operacionais.
+
+Configure **Healthcheck Path** no Railway como `/actuator/health`. O endpoint não
+requer autenticação na configuração atual da API.
