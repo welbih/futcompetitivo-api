@@ -11,7 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ClassificacaoParticipante {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "classificacao_participante_seq")
+    @SequenceGenerator(name = "classificacao_participante_seq", sequenceName = "classificacao_participante_seq", allocationSize = 50)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(nullable = false)

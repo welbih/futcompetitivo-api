@@ -5,6 +5,7 @@ import com.datadynecode.futcompetitivo.api.entity.CampeonatoStatus;
 import com.datadynecode.futcompetitivo.api.entity.TipoFormato;
 import com.datadynecode.futcompetitivo.api.service.*;
 import jakarta.persistence.EntityManager;
+
 import java.util.ArrayList;
 import java.util.List;
 import org.flywaydb.core.Flyway;

@@ -11,7 +11,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Partida {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "partida_seq")
+    @SequenceGenerator(name = "partida_seq", sequenceName = "partida_seq", allocationSize = 50)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(nullable = false)

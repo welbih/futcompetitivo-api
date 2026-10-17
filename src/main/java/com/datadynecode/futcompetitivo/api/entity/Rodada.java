@@ -13,7 +13,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Rodada {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "rodada_seq")
+    @SequenceGenerator(name = "rodada_seq", sequenceName = "rodada_seq", allocationSize = 50)
     private Long id;
     private Integer numero;
     @Enumerated(EnumType.STRING)

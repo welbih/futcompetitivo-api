@@ -13,7 +13,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Campeonato {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "campeonato_seq")
+    @SequenceGenerator(name = "campeonato_seq", sequenceName = "campeonato_seq", allocationSize = 50)
     private Long id;
     @Column(nullable = false)
     private String nome;

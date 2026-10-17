@@ -13,7 +13,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Confronto {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "confronto_seq")
+    @SequenceGenerator(name = "confronto_seq", sequenceName = "confronto_seq", allocationSize = 50)
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY)
     private Participante participanteUm;

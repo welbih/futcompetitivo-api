@@ -49,6 +49,11 @@ as instruções do provedor. Não versione credenciais reais.
 - `V2`: campeonatos, inscrições, fases, rodadas, confrontos, partidas e classificações.
 - `V3`: índices dos relacionamentos e das consultas ordenadas.
 
+Cada entidade possui sua própria sequência `<tabela>_seq`, com incremento 50,
+alinhado ao `allocationSize=50` do JPA. As migrações V1 e V2 criam as sequências
+diretamente, com início em 1 e default `nextval` para inserções SQL diretas.
+Não há migração de conversão: esses scripts iniciais são destinados a um banco vazio.
+
 No primeiro deploy, use um banco/schema vazio. As migrações não inserem dados
 de demonstração. A conta PostgreSQL precisa de permissão para criar tabelas,
 índices e sequências no schema de destino. O Flyway registra as versões na
@@ -58,6 +63,9 @@ versão para mudanças futuras. O comando de limpeza está desabilitado.
 Se o banco já tiver tabelas criadas manualmente, faça a conciliação do schema
 antes de adotar o Flyway; o baseline automático não está habilitado.
 No profile `test`, o Flyway fica desabilitado, mantendo o H2 criado pelo Hibernate.
+Os dados locais usam IDs explícitos e ajustam as sequências após os inserts.
+O teste de migrações executa os mesmos scripts em H2 no modo PostgreSQL e valida
+o schema com o JPA. Ele não substitui a validação em um PostgreSQL real.
 
 ## Comportamento
 

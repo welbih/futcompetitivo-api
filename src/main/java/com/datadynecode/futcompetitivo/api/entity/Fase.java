@@ -13,7 +13,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Fase {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "fase_seq")
+    @SequenceGenerator(name = "fase_seq", sequenceName = "fase_seq", allocationSize = 50)
     private Long id;
     private Integer ordem;
     @Enumerated(EnumType.STRING)

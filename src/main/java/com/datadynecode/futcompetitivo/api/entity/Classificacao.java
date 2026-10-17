@@ -13,7 +13,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Classificacao {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "classificacao_seq")
+    @SequenceGenerator(name = "classificacao_seq", sequenceName = "classificacao_seq", allocationSize = 50)
     private Long id;
     private int rodada;
 
