@@ -1,4 +1,4 @@
-package com.datadynecode.futcompetitivo.api;
+package com.datadynecode.futcompetitivo.api.service;
 
 import com.datadynecode.futcompetitivo.api.dto.EquipeRequest;
 import com.datadynecode.futcompetitivo.api.dto.JogadorRequest;

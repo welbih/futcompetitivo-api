@@ -1,9 +1,9 @@
-package com.datadynecode.futcompetitivo.api;
+package com.datadynecode.futcompetitivo.api.service;
 
-import com.datadynecode.futcompetitivo.api.dto.EquipeRequest;
-import com.datadynecode.futcompetitivo.api.dto.EquipeResponse;
-import com.datadynecode.futcompetitivo.api.repository.EquipeRepository;
-import com.datadynecode.futcompetitivo.api.service.EquipeService;
+import com.datadynecode.futcompetitivo.api.dto.JogadorRequest;
+import com.datadynecode.futcompetitivo.api.dto.JogadorResponse;
+import com.datadynecode.futcompetitivo.api.repository.JogadorRepository;
+import com.datadynecode.futcompetitivo.api.service.JogadorService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,38 +18,38 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
-class EquipeServiceTests {
+class JogadorServiceTests {
 
     @Autowired
-    private EquipeService service;
+    private JogadorService service;
 
     @Autowired
-    private EquipeRepository repository;
+    private JogadorRepository repository;
 
     @Autowired
     private EntityManager entityManager;
 
     @Test
-    void criaConsultaEAtualizaEquipe() {
-        EquipeResponse criado = service.criar(new EquipeRequest("Equipe Azul", "https://example.com/logo.png"));
+    void criaConsultaEAtualizaJogador() {
+        JogadorResponse criado = service.criar(new JogadorRequest("Joao", "Jota"));
         assertNotNull(criado.id());
         assertTrue(criado.ativo());
         assertEquals(criado, service.buscar(criado.id()));
 
-        service.atualizar(criado.id(), new EquipeRequest("Equipe Azul Atualizada", "https://example.com/logo-nova.png"));
+        service.atualizar(criado.id(), new JogadorRequest("Joao Silva", "JS"));
         entityManager.flush();
         entityManager.clear();
 
-        EquipeResponse atualizado = service.buscar(criado.id());
-        assertEquals("Equipe Azul Atualizada", atualizado.nome());
-        assertEquals("https://example.com/logo-nova.png", atualizado.logoUrl());
+        JogadorResponse atualizado = service.buscar(criado.id());
+        assertEquals("Joao Silva", atualizado.nome());
+        assertEquals("JS", atualizado.apelido());
         assertTrue(atualizado.ativo());
     }
 
     @Test
     void desativaSemExcluirRegistroEFiltraConsultas() {
-        EquipeResponse inativo = service.criar(new EquipeRequest("Equipe Azul", "https://example.com/logo.png"));
-        EquipeResponse ativo = service.criar(new EquipeRequest("Equipe Verde", "https://example.com/verde.png"));
+        JogadorResponse inativo = service.criar(new JogadorRequest("Joao", "Jota"));
+        JogadorResponse ativo = service.criar(new JogadorRequest("Pedro", null));
 
         service.desativar(inativo.id());
         entityManager.flush();
@@ -64,20 +64,20 @@ class EquipeServiceTests {
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(ResponseStatusException.class,
                         () -> service.atualizar(inativo.id(),
-                                new EquipeRequest("Outro", "https://example.com/logo.png"))).getStatusCode());
+                                new JogadorRequest("Outro", null))).getStatusCode());
         service.desativar(inativo.id());
         assertTrue(repository.existsById(inativo.id()));
     }
 
     @Test
-    void retorna404ParaEquipeInexistente() {
+    void retorna404ParaJogadorInexistente() {
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(ResponseStatusException.class,
                         () -> service.buscar(Long.MAX_VALUE)).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(ResponseStatusException.class,
                         () -> service.atualizar(Long.MAX_VALUE,
-                                new EquipeRequest("Equipe Azul", "https://example.com/logo.png"))).getStatusCode());
+                                new JogadorRequest("Joao", null))).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND,
                 assertThrows(ResponseStatusException.class,
                         () -> service.desativar(Long.MAX_VALUE)).getStatusCode());

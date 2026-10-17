@@ -1,4 +1,4 @@
-package com.datadynecode.futcompetitivo.api;
+package com.datadynecode.futcompetitivo.api.controller;
 
 import com.datadynecode.futcompetitivo.api.controller.EquipeController;
 import com.datadynecode.futcompetitivo.api.dto.EquipeResponse;

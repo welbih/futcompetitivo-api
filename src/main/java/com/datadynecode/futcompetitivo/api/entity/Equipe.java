@@ -21,6 +21,7 @@ public class Equipe {
 
     private String nome;
 
+    @Column(name = "logo_url")
     private String logoUrl;
 
     @Column(nullable = false)
