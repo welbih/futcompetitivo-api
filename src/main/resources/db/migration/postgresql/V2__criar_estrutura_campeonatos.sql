@@ -2,9 +2,10 @@ CREATE SEQUENCE campeonato_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE campeonato (
     id BIGINT DEFAULT nextval('campeonato_seq') PRIMARY KEY,
-    nome VARCHAR(255) NOT NULL,
+    organizacao_id BIGINT NOT NULL,
     edicao INTEGER NOT NULL,
     status VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_campeonato_organizacao FOREIGN KEY (organizacao_id) REFERENCES organizacao (id),
     CONSTRAINT ck_campeonato_status CHECK (status IN ('CRIADO', 'EM_ANDAMENTO', 'FINALIZADO'))
 );
 

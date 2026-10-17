@@ -45,7 +45,7 @@ as instruções do provedor. Não versione credenciais reais.
 às entidades. O Flyway executa automaticamente as migrações pendentes de
 `src/main/resources/db/migration/postgresql` antes dessa validação:
 
-- `V1`: jogadores, equipes e participantes.
+- `V1`: organizações, jogadores, equipes e participantes.
 - `V2`: campeonatos, inscrições, fases, rodadas, confrontos, partidas e classificações.
 - `V3`: índices dos relacionamentos e das consultas ordenadas.
 

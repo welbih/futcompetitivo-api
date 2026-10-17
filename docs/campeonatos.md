@@ -37,15 +37,23 @@ campeonato não cria nem exclui jogadores, equipes ou participantes em cascata.
 
 ```json
 {
-  "nome": "Liga Local",
+  "organizacaoId": 1,
   "edicao": 2026,
   "participanteIds": [1, 2, 3, 4]
 }
 ```
 
-Nome, edição positiva e lista não vazia de participantes são obrigatórios.
+Organização ativa, edição positiva e lista não vazia de participantes são obrigatórios.
 IDs repetidos são rejeitados. Participante, jogador e equipe precisam estar
 ativos na criação, atualização e início do campeonato.
+
+O campeonato não possui nome próprio: pertence a uma organização por `ManyToOne`.
+Uma mesma organização pode ter vários campeonatos. Cadastre a organização em
+`POST /organizacoes` com `{"nome":"Liga Local","ativo":true}` e use o ID retornado.
+O CRUD inclui `GET /organizacoes`, `GET /organizacoes/{id}`, `PUT /organizacoes/{id}`
+e `DELETE /organizacoes/{id}` (desativação lógica). A listagem e a consulta incluem
+organizações inativas; `PUT` permite atualizar o nome e reativá-las. A desativação
+preserva campeonatos existentes, mas impede novos vínculos e novos inícios.
 
 ### Iniciar
 

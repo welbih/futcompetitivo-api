@@ -31,7 +31,7 @@ class CampeonatoControllerTests {
     void cadastroValidaCamposObrigatorios() throws Exception {
         mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.erros.nome").value("nome é obrigatório."))
+                .andExpect(jsonPath("$.erros.organizacaoId").value("organizacao é obrigatório."))
                 .andExpect(jsonPath("$.erros.edicao").value("edicao é obrigatório."))
                 .andExpect(jsonPath("$.erros.participanteIds").value("participantes é obrigatório."));
         verifyNoInteractions(service);
@@ -39,10 +39,10 @@ class CampeonatoControllerTests {
 
     @Test
     void cadastroRetorna201ELocation() throws Exception {
-        when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, "Liga", 2026,
+        when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, new OrganizacaoResponse(1L, "Liga", true), 2026,
                 CampeonatoStatus.CRIADO, List.of(), List.of(), List.of()));
         mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"nome\":\"Liga\",\"edicao\":2026,\"participanteIds\":[1,2,3]}"))
+                        .content("{\"organizacaoId\":1,\"edicao\":2026,\"participanteIds\":[1,2,3]}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/campeonatos/1"))
                 .andExpect(jsonPath("$.status").value("CRIADO"));

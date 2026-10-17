@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class FlywayMigrationTests {
     @Autowired private Flyway flyway;
     @Autowired private CampeonatoService campeonatos;
+    @Autowired private OrganizacaoService organizacoes;
     @Autowired private JogadorService jogadores;
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
@@ -53,7 +54,7 @@ class FlywayMigrationTests {
             var equipe = equipes.criar(new EquipeRequest("Equipe " + i, "https://example.com/logo.png"));
             ids.add(participantes.criar(new ParticipanteRequest(jogador.id(), equipe.id())).id());
         }
-        var criado = campeonatos.criar(new CampeonatoRequest("Liga migrada", 2026, ids));
+        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga migrada", true)).id(), 2026, ids));
         var iniciado = campeonatos.iniciar(criado.id(),
                 new IniciarCampeonatoRequest(TipoFormato.LIGA, false, null, null));
         for (var rodada : iniciado.fases().getFirst().rodadas())

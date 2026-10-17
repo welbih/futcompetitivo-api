@@ -6,6 +6,7 @@ import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import com.datadynecode.futcompetitivo.api.mapper.CampeonatoMapper;
 import com.datadynecode.futcompetitivo.api.repository.CampeonatoRepository;
 import com.datadynecode.futcompetitivo.api.repository.ParticipanteRepository;
+import com.datadynecode.futcompetitivo.api.repository.OrganizacaoRepository;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -20,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class CampeonatoService {
     private final CampeonatoRepository repository;
     private final ParticipanteRepository participanteRepository;
+    private final OrganizacaoRepository organizacaoRepository;
     private final CampeonatoMapper mapper;
     private final GeradorFasesService geradorFases;
     private final GeradorClassificacaoService geradorClassificacao;
@@ -51,6 +53,7 @@ public class CampeonatoService {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getStatus() == CampeonatoStatus.CRIADO, "Campeonato já iniciado.");
         campeonato.getParticipantes().forEach(this::validarParticipante);
+        exigir(campeonato.getOrganizacao().isAtivo(), "Organização deve estar ativa.");
         Collections.shuffle(campeonato.getParticipantes());
         Fase fase = geradorFases.gerar(campeonato.getParticipantes(), request);
         campeonato.getFases().add(fase);
@@ -137,7 +140,8 @@ public class CampeonatoService {
                 participanteRepository.findByIdAndAtivoTrue(id)
                         .orElseThrow(() -> naoEncontrado("Participante", id))).toList();
         participantes.forEach(this::validarParticipante);
-        campeonato.setNome(request.nome());
+        campeonato.setOrganizacao(organizacaoRepository.findByIdAndAtivoTrue(request.organizacaoId())
+                .orElseThrow(() -> naoEncontrado("Organização ativa", request.organizacaoId())));
         campeonato.setEdicao(request.edicao());
         campeonato.getParticipantes().clear();
         campeonato.getParticipantes().addAll(participantes);

@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 class CampeonatoServiceTests {
     @Autowired private CampeonatoService service;
+    @Autowired private OrganizacaoService organizacoes;
     @Autowired private JogadorService jogadores;
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
@@ -30,11 +31,11 @@ class CampeonatoServiceTests {
     @Test
     void persisteCampeonatoComParticipantesExistentesEPermiteAtualizarAntesDeIniciar() {
         List<Long> ids = criarParticipantes(3);
-        var criado = service.criar(new CampeonatoRequest("Liga", 2026, ids));
-        service.atualizar(criado.id(), new CampeonatoRequest("Liga Local", 2027, ids.reversed()));
+        var criado = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga", true)).id(), 2026, ids));
+        service.atualizar(criado.id(), new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga Local", true)).id(), 2027, ids.reversed()));
         recarregar();
         var salvo = service.buscar(criado.id());
-        assertEquals("Liga Local", salvo.nome());
+        assertEquals("Liga Local", salvo.organizacao().nome());
         assertEquals(2027, salvo.edicao());
         assertEquals(ids.reversed(), salvo.participantes().stream().map(ParticipanteResponse::id).toList());
         assertEquals(CampeonatoStatus.CRIADO, salvo.status());
@@ -44,7 +45,7 @@ class CampeonatoServiceTests {
     @Test
     void geraLigaComReturnoEFinalizaSemAlterarClassificacoesAnteriores() {
         List<Long> ids = criarParticipantes(4);
-        var criado = service.criar(new CampeonatoRequest("Liga", 2026, ids));
+        var criado = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga", true)).id(), 2026, ids));
         var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(TipoFormato.LIGA, true, null, null));
         recarregar();
         var rodadas = service.buscar(criado.id()).fases().getFirst().rodadas();
@@ -54,7 +55,7 @@ class CampeonatoServiceTests {
         assertThrows(RegraCampeonatoException.class, () -> service.iniciar(criado.id(),
                 new IniciarCampeonatoRequest(TipoFormato.LIGA, false, null, null)));
         assertThrows(RegraCampeonatoException.class, () -> service.atualizar(criado.id(),
-                new CampeonatoRequest("Outro", 2026, ids)));
+                new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Outro", true)).id(), 2026, ids)));
 
         var partidaFutura = rodadas.get(1).partidas().getFirst();
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(criado.id(),
@@ -78,13 +79,13 @@ class CampeonatoServiceTests {
 
     @Test
     void ligaImparPreservaFolgasELigaParcialRespeitaQuantidadeDeJogos() {
-        var impar = service.criar(new CampeonatoRequest("Impar", 2026, criarParticipantes(3)));
+        var impar = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Impar", true)).id(), 2026, criarParticipantes(3)));
         var agenda = service.iniciar(impar.id(), new IniciarCampeonatoRequest(TipoFormato.LIGA, false, null, null));
         assertEquals(3, agenda.fases().getFirst().rodadas().size());
         assertEquals(3, agenda.fases().getFirst().rodadas().stream()
                 .map(RodadaResponse::folgaParticipanteId).distinct().count());
         List<Long> ids = criarParticipantes(6);
-        var parcial = service.criar(new CampeonatoRequest("Parcial", 2026, ids));
+        var parcial = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Parcial", true)).id(), 2026, ids));
         var gerado = service.iniciar(parcial.id(), new IniciarCampeonatoRequest(TipoFormato.LIGA_PARCIAL, false, 2, null));
         recarregar();
         List<PartidaResponse> partidas = service.buscar(gerado.id()).fases().getFirst().rodadas().stream()
@@ -98,7 +99,7 @@ class CampeonatoServiceTests {
 
     @Test
     void swissRetomaDoBancoEvitaRevancheEAlternaFolga() {
-        var criado = service.criar(new CampeonatoRequest("Swiss", 2026, criarParticipantes(5)));
+        var criado = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Swiss", true)).id(), 2026, criarParticipantes(5)));
         var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(TipoFormato.SWISS, false, null, 2));
         RodadaResponse primeira = iniciado.fases().getFirst().rodadas().getFirst();
         assertThrows(RegraCampeonatoException.class, () -> service.gerarProximaRodadaSwiss(criado.id()));
@@ -117,18 +118,18 @@ class CampeonatoServiceTests {
     void rejeitaParticipantesDuplicadosInativosEInexistentes() {
         List<Long> ids = criarParticipantes(3);
         assertThrows(RegraCampeonatoException.class, () -> service.criar(
-                new CampeonatoRequest("Duplicado", 2026, List.of(ids.getFirst(), ids.getFirst()))));
+                new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Duplicado", true)).id(), 2026, List.of(ids.getFirst(), ids.getFirst()))));
         assertThrows(ResponseStatusException.class, () -> service.criar(
-                new CampeonatoRequest("Inexistente", 2026, List.of(Long.MAX_VALUE))));
+                new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Inexistente", true)).id(), 2026, List.of(Long.MAX_VALUE))));
         var participante = participantes.buscar(ids.getFirst());
         equipes.desativar(participante.equipe().id());
-        assertThrows(RegraCampeonatoException.class, () -> service.criar(new CampeonatoRequest("Inativo", 2026, ids)));
+        assertThrows(RegraCampeonatoException.class, () -> service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Inativo", true)).id(), 2026, ids)));
         assertThrows(ResponseStatusException.class, () -> service.buscar(Long.MAX_VALUE));
     }
 
     @Test
     void formatosIncompletosDaOrigemNaoIniciamCampeonato() {
-        var criado = service.criar(new CampeonatoRequest("Copa", 2026, criarParticipantes(4)));
+        var criado = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Copa", true)).id(), 2026, criarParticipantes(4)));
         for (TipoFormato formato : List.of(TipoFormato.ELIMINATORIO, TipoFormato.MISTA)) {
             assertThrows(RegraCampeonatoException.class, () -> service.iniciar(criado.id(),
                     new IniciarCampeonatoRequest(formato, false, null, null)));

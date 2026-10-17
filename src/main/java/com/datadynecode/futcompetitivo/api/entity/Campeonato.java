@@ -16,8 +16,9 @@ public class Campeonato {
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "campeonato_seq")
     @SequenceGenerator(name = "campeonato_seq", sequenceName = "campeonato_seq", allocationSize = 50)
     private Long id;
-    @Column(nullable = false)
-    private String nome;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "organizacao_id", nullable = false)
+    private Organizacao organizacao;
     @Column(nullable = false)
     private Integer edicao;
     @Enumerated(EnumType.STRING)

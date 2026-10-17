@@ -1,4 +1,5 @@
 CREATE INDEX idx_participante_jogador ON participante (jogador_id);
+CREATE INDEX idx_campeonato_organizacao ON campeonato (organizacao_id);
 CREATE INDEX idx_participante_equipe ON participante (equipe_id);
 CREATE INDEX idx_campeonato_participante_participante ON campeonato_participante (participante_id);
 CREATE INDEX idx_fase_campeonato_ordem ON fase (campeonato_id, ordem);

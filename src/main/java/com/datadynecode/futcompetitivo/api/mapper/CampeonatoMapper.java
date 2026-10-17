@@ -9,9 +9,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CampeonatoMapper {
     private final ParticipanteMapper participanteMapper;
+    private final OrganizacaoMapper organizacaoMapper;
 
     public CampeonatoResponse toResponse(Campeonato campeonato) {
-        return new CampeonatoResponse(campeonato.getId(), campeonato.getNome(), campeonato.getEdicao(),
+        return new CampeonatoResponse(campeonato.getId(), organizacaoMapper.toResponse(campeonato.getOrganizacao()), campeonato.getEdicao(),
                 campeonato.getStatus(), campeonato.getParticipantes().stream()
                         .map(participanteMapper::toResponse).toList(),
                 campeonato.getFases().stream().map(this::toResponse).toList(),

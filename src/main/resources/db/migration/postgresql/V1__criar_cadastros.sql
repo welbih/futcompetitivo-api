@@ -1,3 +1,11 @@
+CREATE SEQUENCE organizacao_seq START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE organizacao (
+    id BIGINT DEFAULT nextval('organizacao_seq') PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 CREATE SEQUENCE jogador_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE jogador (

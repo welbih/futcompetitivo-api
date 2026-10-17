@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class SimuladorCampeonato {
 
     @Autowired private CampeonatoService campeonatos;
+    @Autowired private OrganizacaoService organizacoes;
     @Autowired private JogadorService jogadores;
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
@@ -30,7 +31,7 @@ public class SimuladorCampeonato {
             TipoFormato formato, boolean returno, Integer jogosPorParticipante, Integer totalRodadas,
             int totalPartidasEsperado, Integer jogosEsperadosPorParticipante) {
         List<Long> ids = criarParticipantes(quantidade);
-        var criado = campeonatos.criar(new CampeonatoRequest(nome, 2026, ids));
+        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest(nome, true)).id(), 2026, ids));
         campeonatos.iniciar(criado.id(), new IniciarCampeonatoRequest(
                 formato, returno, jogosPorParticipante, totalRodadas));
         recarregar();

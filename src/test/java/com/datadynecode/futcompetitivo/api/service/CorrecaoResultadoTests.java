@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 class CorrecaoResultadoTests {
     @Autowired private CampeonatoService service;
+    @Autowired private OrganizacaoService organizacoes;
     @Autowired private JogadorService jogadores;
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
@@ -134,7 +135,7 @@ class CorrecaoResultadoTests {
             var equipe = equipes.criar(new EquipeRequest("Equipe " + i, "https://example.com/logo.png"));
             ids.add(participantes.criar(new ParticipanteRequest(jogador.id(), equipe.id())).id());
         }
-        var campeonato = service.criar(new CampeonatoRequest("Correcao", 2026, ids));
+        var campeonato = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Correcao", true)).id(), 2026, ids));
         return service.iniciar(campeonato.id(), new IniciarCampeonatoRequest(formato, false,
                 formato == TipoFormato.LIGA_PARCIAL ? 2 : null, formato == TipoFormato.SWISS ? 3 : null));
     }
