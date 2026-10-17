@@ -1,0 +1,18 @@
+CREATE INDEX idx_participante_jogador ON participante (jogador_id);
+CREATE INDEX idx_participante_equipe ON participante (equipe_id);
+CREATE INDEX idx_campeonato_participante_participante ON campeonato_participante (participante_id);
+CREATE INDEX idx_fase_campeonato_ordem ON fase (campeonato_id, ordem);
+CREATE INDEX idx_rodada_fase_numero ON rodada (fase_id, numero);
+CREATE INDEX idx_rodada_folga ON rodada (folga_id);
+CREATE INDEX idx_confronto_fase_ordem ON confronto (fase_id, ordem);
+CREATE INDEX idx_confronto_participante_um ON confronto (participante_um_id);
+CREATE INDEX idx_confronto_participante_dois ON confronto (participante_dois_id);
+CREATE INDEX idx_confronto_origem_um ON confronto (origem_um_id);
+CREATE INDEX idx_confronto_origem_dois ON confronto (origem_dois_id);
+CREATE INDEX idx_partida_rodada_ordem ON partida (rodada_id, ordem);
+CREATE INDEX idx_partida_confronto_ordem ON partida (confronto_id, ordem);
+CREATE INDEX idx_partida_mandante ON partida (mandante_id);
+CREATE INDEX idx_partida_visitante ON partida (visitante_id);
+CREATE INDEX idx_classificacao_campeonato_rodada ON classificacao (campeonato_id, rodada);
+CREATE INDEX idx_classificacao_participante_posicao ON classificacao_participante (classificacao_id, posicao_atual);
+CREATE INDEX idx_classificacao_participante_participante ON classificacao_participante (participante_id);

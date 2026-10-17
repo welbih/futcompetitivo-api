@@ -42,10 +42,22 @@ as instruções do provedor. Não versione credenciais reais.
 ## Schema do banco
 
 `spring.jpa.hibernate.ddl-auto=validate` verifica se o schema existente corresponde
-às entidades. Não cria, altera nem apaga tabelas automaticamente. O projeto ainda
-não possui migrações de banco: antes do primeiro deploy contra um PostgreSQL vazio,
-é necessário criar e aplicar as migrações do schema, por exemplo com Flyway.
-Sem isso, a aplicação interrompe a inicialização na validação do schema.
+às entidades. O Flyway executa automaticamente as migrações pendentes de
+`src/main/resources/db/migration/postgresql` antes dessa validação:
+
+- `V1`: jogadores, equipes e participantes.
+- `V2`: campeonatos, inscrições, fases, rodadas, confrontos, partidas e classificações.
+- `V3`: índices dos relacionamentos e das consultas ordenadas.
+
+No primeiro deploy, use um banco/schema vazio. As migrações não inserem dados
+de demonstração. A conta PostgreSQL precisa de permissão para criar tabelas,
+índices e sequências no schema de destino. O Flyway registra as versões na
+tabela `flyway_schema_history`; não altere scripts já aplicados, crie uma nova
+versão para mudanças futuras. O comando de limpeza está desabilitado.
+
+Se o banco já tiver tabelas criadas manualmente, faça a conciliação do schema
+antes de adotar o Flyway; o baseline automático não está habilitado.
+No profile `test`, o Flyway fica desabilitado, mantendo o H2 criado pelo Hibernate.
 
 ## Comportamento
 
@@ -56,7 +68,7 @@ Sem isso, a aplicação interrompe a inicialização na validação do schema.
 - Omite detalhes internos das respostas de erro padrão do Spring Boot.
   As respostas específicas de validação e regras de negócio continuam disponíveis.
 
-Para executar um JAR já compilado, após configurar as variáveis e preparar o schema:
+Para executar um JAR já compilado, após configurar as variáveis e provisionar o banco:
 
 ```powershell
 java -jar target/futcompetitivo-api-0.0.1-SNAPSHOT.jar
