@@ -14,7 +14,8 @@ public final class ExecutorSimulacaoMain {
         try (var contexto = new SpringApplicationBuilder(FutcompetitivoApiApplication.class)
                 .web(WebApplicationType.NONE)
                 .profiles("test")
-                .run("--spring.datasource.url=jdbc:h2:mem:simulacao_" + UUID.randomUUID(),
+                .run("--spring.profiles.active=test",
+                        "--spring.datasource.url=jdbc:h2:mem:simulacao_" + UUID.randomUUID(),
                         "--spring.jpa.show-sql=false", "--spring.main.banner-mode=off",
                         "--logging.level.root=WARN")) {
             var simulacao = contexto.getAutowireCapableBeanFactory().createBean(SimuladorCampeonato.class);
