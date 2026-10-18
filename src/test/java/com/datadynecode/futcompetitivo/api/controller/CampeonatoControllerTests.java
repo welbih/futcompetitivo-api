@@ -76,6 +76,28 @@ class CampeonatoControllerTests {
     }
 
     @Test
+    void resultadosEmLoteValidamPlacaresEDelegamSemFinalizar() throws Exception {
+        mvc.perform(put("/campeonatos/1/rodadas/2/resultados").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resultados\":[{\"partidaId\":3,\"resultado\":{\"golsMandante\":2,\"golsVisitante\":1}}]}"))
+                .andExpect(status().isOk());
+        verify(service).registrarResultadosSemFinalizar(1L, 2L,
+                List.of(new ResultadoPartidaRequest(3L, new ResultadoRequest(2, 1, null, null, null))));
+        clearInvocations(service);
+        mvc.perform(put("/campeonatos/1/rodadas/2/resultados").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/campeonatos/1/rodadas/2/resultados").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resultados\":[{\"partidaId\":3,\"resultado\":{\"golsMandante\":-1}}]}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void finalizacaoManualDelegaAoServico() throws Exception {
+        mvc.perform(post("/campeonatos/1/rodadas/2/finalizar")).andExpect(status().isOk());
+        verify(service).finalizarRodada(1L, 2L);
+    }
+
+    @Test
     void rejeitaResultadoSemGolsOuComGolsNegativos() throws Exception {
         mvc.perform(put("/campeonatos/1/partidas/1/resultado")
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))

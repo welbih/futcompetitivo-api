@@ -188,3 +188,31 @@ Os testes estão organizados em `controller` (contratos e validação HTTP),
 `simulacao/suporte` contém o simulador, a definição dos cenários e o executor dos
 mains, compartilhados sem instanciar classes de teste. Somente o teste de
 inicialização da aplicação permanece no pacote raiz.
+
+## Resultados em lote sem finalizar a rodada
+
+O envio individual de resultado continua finalizando automaticamente a rodada
+quando todas as partidas têm placar. Como alternativa, envie um ou mais resultados
+pela rota `PUT /campeonatos/{id}/rodadas/{rodadaId}/resultados`:
+
+```json
+{
+  "resultados": [
+    {"partidaId": 10, "resultado": {"golsMandante": 2, "golsVisitante": 1}},
+    {"partidaId": 11, "resultado": {"golsMandante": 0, "golsVisitante": 0}}
+  ]
+}
+```
+
+Use o ID da rodada e os IDs das partidas que deseja preencher ou corrigir.
+A rodada deve estar `EM_ANDAMENTO`; partidas duplicadas, de outras rodadas ou
+uma lista vazia são rejeitadas. A operação é transacional. Partidas não enviadas
+mantêm seus placares. É possível enviar uma única partida por vez e reenviar
+placares para corrigi-los enquanto a rodada está em andamento.
+
+As partidas ficam finalizadas, mas a rodada permanece `EM_ANDAMENTO`, sem atualizar
+sua classificação, liberar a próxima rodada ou encerrar o campeonato.
+Para concluir, envie `POST /campeonatos/{id}/rodadas/{rodadaId}/finalizar`, sem corpo.
+Todas as partidas devem ter resultado. A finalização atualiza a classificação
+e avança a próxima rodada da liga; no Swiss, a próxima continua sendo gerada
+pelo endpoint próprio. Na última rodada, o campeonato é finalizado.

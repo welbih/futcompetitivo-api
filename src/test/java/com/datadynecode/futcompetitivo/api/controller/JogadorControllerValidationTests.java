@@ -1,5 +1,7 @@
 package com.datadynecode.futcompetitivo.api.controller;
 
+import org.junit.jupiter.api.Test;
+
 import com.datadynecode.futcompetitivo.api.controller.JogadorController;
 import com.datadynecode.futcompetitivo.api.dto.JogadorResponse;
 import com.datadynecode.futcompetitivo.api.exception.ApiExceptionHandler;
@@ -46,5 +48,29 @@ class JogadorControllerValidationTests {
         when(service.criar(any())).thenReturn(new JogadorResponse(1L, "Osmar", null, true));
         mvc.perform(post("/jogadores").contentType(MediaType.APPLICATION_JSON).content(corpo))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void listagemAceitaSituacaoEPreservaPadraoAtivos() throws Exception {
+        for (var situacao : com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.values()) {
+            mvc.perform(get("/jogadores").param("situacao", situacao.name())).andExpect(status().isOk());
+            verify(service).listar(situacao);
+        }
+        clearInvocations(service);
+        mvc.perform(get("/jogadores")).andExpect(status().isOk());
+        verify(service).listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.ATIVOS);
+        clearInvocations(service);
+        mvc.perform(get("/jogadores").param("situacao", "INVALIDO")).andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void ativacaoRetornaRegistroAtivo() throws Exception {
+        when(service.ativar(1L)).thenReturn(new JogadorResponse(1L, "Ativo", "valor", true));
+        mvc.perform(put("/jogadores/1/ativar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ativo").value(true));
+        verify(service).ativar(1L);
     }
 }

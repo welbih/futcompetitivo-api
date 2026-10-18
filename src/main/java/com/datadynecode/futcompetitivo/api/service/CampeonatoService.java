@@ -75,6 +75,11 @@ public class CampeonatoService {
 
     @Transactional
     public CampeonatoResponse registrarResultado(Long id, Long partidaId, ResultadoRequest request) {
+        return registrarResultado(id, partidaId, request, true);
+    }
+
+    private CampeonatoResponse registrarResultado(Long id, Long partidaId, ResultadoRequest request,
+            boolean finalizarAutomaticamente) {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getStatus() != CampeonatoStatus.CRIADO, "Campeonato ainda não iniciado.");
         List<Rodada> rodadas = campeonato.getFases().stream().flatMap(f -> f.getRodadas().stream())
@@ -91,28 +96,74 @@ public class CampeonatoService {
         if (partida.isFinalizada()
                 && Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
                 && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())) {
+            if (finalizarAutomaticamente && rodada.getStatus() == RodadaStatus.EM_ANDAMENTO
+                    && rodada.getPartidas().stream().allMatch(Partida::isFinalizada)) {
+                finalizar(campeonato, rodadas, rodada);
+                return mapper.toResponse(repository.saveAndFlush(campeonato));
+            }
             return mapper.toResponse(campeonato);
         }
         partida.setResultado(new Resultado(Boolean.TRUE.equals(request.golDeOuro()), request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
         partida.setStatus(StatusPartida.FINALIZADA);
-        boolean finalizada = rodada.getPartidas().stream().allMatch(Partida::isFinalizada);
-        rodada.setStatus(finalizada ? RodadaStatus.FINALIZADA : RodadaStatus.EM_ANDAMENTO);
-        if (finalizada) {
-            recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
-            Fase fase = campeonato.getFases().getFirst();
-            boolean todasGeradas = fase.getTipo() != TipoFase.SWISS
-                    || fase.getRodadas().size() == fase.getTotalRodadas();
-            if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
-                campeonato.setStatus(CampeonatoStatus.FINALIZADO);
-            rodadas.stream().filter(r -> r.getNumero() > rodada.getNumero()
-                            && r.getStatus() == RodadaStatus.PENDENTE)
-                    .findFirst().filter(proxima -> rodadas.stream()
-                            .filter(r -> r.getNumero() < proxima.getNumero())
-                            .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
-                    .ifPresent(proxima -> proxima.setStatus(RodadaStatus.EM_ANDAMENTO));
+        if (rodada.getStatus() == RodadaStatus.FINALIZADA
+                || (finalizarAutomaticamente && rodada.getPartidas().stream().allMatch(Partida::isFinalizada))) {
+            finalizar(campeonato, rodadas, rodada);
         }
         return mapper.toResponse(repository.saveAndFlush(campeonato));
+    }
+
+    @Transactional
+    public CampeonatoResponse registrarResultadosSemFinalizar(Long id, Long rodadaId,
+            List<ResultadoPartidaRequest> resultados) {
+        Campeonato campeonato = buscarEntidade(id);
+        Rodada rodada = rodadas(campeonato).stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
+                .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
+        exigir(rodada.getStatus() == RodadaStatus.EM_ANDAMENTO, "Rodada deve estar em andamento.");
+        exigir(resultados != null && !resultados.isEmpty(), "resultados é obrigatório.");
+        var ids = resultados.stream().map(ResultadoPartidaRequest::partidaId).toList();
+        exigir(new HashSet<>(ids).size() == ids.size(), "A lista de resultados não pode conter partidas duplicadas.");
+        exigir(new HashSet<>(rodada.getPartidas().stream().map(Partida::getId).toList()).containsAll(ids),
+                "Informe apenas partidas pertencentes à rodada.");
+        resultados.forEach(r -> validarResultado(r.resultado()));
+        resultados.forEach(r -> registrarResultado(id, r.partidaId(), r.resultado(), false));
+        return mapper.toResponse(campeonato);
+    }
+
+    @Transactional
+    public CampeonatoResponse finalizarRodada(Long id, Long rodadaId) {
+        Campeonato campeonato = buscarEntidade(id);
+        List<Rodada> rodadas = rodadas(campeonato);
+        Rodada rodada = rodadas.stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
+                .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
+        exigir(rodada.getStatus() == RodadaStatus.EM_ANDAMENTO, "Rodada deve estar em andamento.");
+        exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
+                .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
+        exigir(rodada.getPartidas().stream().allMatch(Partida::isFinalizada),
+                "Todas as partidas devem ter resultado antes de finalizar a rodada.");
+        finalizar(campeonato, rodadas, rodada);
+        return mapper.toResponse(repository.saveAndFlush(campeonato));
+    }
+
+    private List<Rodada> rodadas(Campeonato campeonato) {
+        return campeonato.getFases().stream().flatMap(f -> f.getRodadas().stream())
+                .sorted(Comparator.comparing(Rodada::getNumero)).toList();
+    }
+
+    private void finalizar(Campeonato campeonato, List<Rodada> rodadas, Rodada rodada) {
+        rodada.setStatus(RodadaStatus.FINALIZADA);
+        recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
+        Fase fase = campeonato.getFases().getFirst();
+        boolean todasGeradas = fase.getTipo() != TipoFase.SWISS
+                || fase.getRodadas().size() == fase.getTotalRodadas();
+        if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
+            campeonato.setStatus(CampeonatoStatus.FINALIZADO);
+        rodadas.stream().filter(r -> r.getNumero() > rodada.getNumero()
+                        && r.getStatus() == RodadaStatus.PENDENTE)
+                .findFirst().filter(proxima -> rodadas.stream()
+                        .filter(r -> r.getNumero() < proxima.getNumero())
+                        .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
+                .ifPresent(proxima -> proxima.setStatus(RodadaStatus.EM_ANDAMENTO));
     }
 
     private void recalcularClassificacoes(Campeonato campeonato, List<Rodada> rodadas, int aPartirDaRodada) {

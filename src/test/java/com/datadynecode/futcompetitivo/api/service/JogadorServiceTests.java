@@ -82,4 +82,41 @@ class JogadorServiceTests {
                 assertThrows(ResponseStatusException.class,
                         () -> service.desativar(Long.MAX_VALUE)).getStatusCode());
     }
+
+    @Test
+    void filtraAtivosInativosEAmbos() {
+        var ativo = service.criar(new JogadorRequest("Filtro", null));
+        var inativo = service.criar(new JogadorRequest("Filtro", null));
+        service.desativar(inativo.id());
+        entityManager.flush();
+        entityManager.clear();
+        var ativos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.ATIVOS);
+        var inativos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.INATIVOS);
+        var ambos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.AMBOS);
+        assertTrue(ativos.stream().allMatch(JogadorResponse::ativo));
+        assertTrue(inativos.stream().noneMatch(JogadorResponse::ativo));
+        assertTrue(ativos.stream().anyMatch(r -> r.id().equals(ativo.id())));
+        assertTrue(inativos.stream().anyMatch(r -> r.id().equals(inativo.id())));
+        assertEquals(ativos.size() + inativos.size(), ambos.size());
+        assertEquals(ativos, service.listar());
+        assertEquals(ambos.stream().map(JogadorResponse::id).sorted().toList(),
+                ambos.stream().map(JogadorResponse::id).toList());
+    }
+
+    @Test
+    void reativaSemDuplicarEPreservaDados() {
+        var criado = service.criar(new JogadorRequest("Reativado", null));
+        service.desativar(criado.id());
+        entityManager.flush();
+        entityManager.clear();
+        long quantidade = repository.count();
+        assertEquals(criado, service.ativar(criado.id()));
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(criado, service.buscar(criado.id()));
+        assertEquals(criado, service.ativar(criado.id()));
+        assertEquals(quantidade, repository.count());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> service.ativar(Long.MAX_VALUE)).getStatusCode());
+    }
 }

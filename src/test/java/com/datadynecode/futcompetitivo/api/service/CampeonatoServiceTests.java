@@ -32,6 +32,65 @@ class CampeonatoServiceTests {
 
     @ParameterizedTest
     @EnumSource(value = TipoFormato.class, names = {"LIGA", "LIGA_PARCIAL", "SWISS"})
+    void registraTodosOsResultadosSemEncerrarEAguardaFinalizacaoManual(TipoFormato formato) {
+        var org = organizacoes.criar(new OrganizacaoRequest("Rodadas manuais", true));
+        var criado = service.criar(new CampeonatoRequest(org.id(), 2026, selecoes(criarParticipantes(4))));
+        var campeonato = service.iniciar(criado.id(), new IniciarCampeonatoRequest(formato, false,
+                formato == TipoFormato.LIGA_PARCIAL ? 3 : null, formato == TipoFormato.SWISS ? 2 : null));
+        var primeira = campeonato.fases().getFirst().rodadas().getFirst();
+        assertThrows(RegraCampeonatoException.class, () -> service.finalizarRodada(criado.id(), primeira.id()));
+        var resultados = primeira.partidas().stream().map(p -> new ResultadoPartidaRequest(p.id(), placar())).toList();
+        assertThrows(RegraCampeonatoException.class, () -> service.registrarResultadosSemFinalizar(criado.id(),
+                primeira.id(), List.of(resultados.getFirst(), resultados.getFirst())));
+        assertThrows(RegraCampeonatoException.class, () -> service.registrarResultadosSemFinalizar(criado.id(),
+                primeira.id(), List.of(resultados.getFirst(), new ResultadoPartidaRequest(Long.MAX_VALUE, placar()))));
+        service.registrarResultadosSemFinalizar(criado.id(), primeira.id(), resultados.subList(0, 1));
+        recarregar();
+        var parcial = service.buscar(criado.id()).fases().getFirst().rodadas().getFirst();
+        assertEquals(RodadaStatus.EM_ANDAMENTO, parcial.status());
+        assertNotNull(parcial.partidas().getFirst().resultado());
+        assertNull(parcial.partidas().getLast().resultado());
+        assertThrows(RegraCampeonatoException.class, () -> service.finalizarRodada(criado.id(), primeira.id()));
+        var correcao = new ResultadoPartidaRequest(resultados.getFirst().partidaId(), new ResultadoRequest(4, 3, null, null, false));
+        service.registrarResultadosSemFinalizar(criado.id(), primeira.id(), List.of(correcao));
+        service.registrarResultadosSemFinalizar(criado.id(), primeira.id(), resultados.subList(1, resultados.size()));
+        recarregar();
+        var completa = service.buscar(criado.id()).fases().getFirst().rodadas().getFirst();
+        assertEquals(4, completa.partidas().getFirst().resultado().golsMandante());
+        assertEquals(3, completa.partidas().getFirst().resultado().golsVisitante());
+        assertEquals(RodadaStatus.EM_ANDAMENTO, completa.status());
+        assertTrue(service.buscar(criado.id()).classificacaoPorRodada().isEmpty());
+        while (campeonato.status() != CampeonatoStatus.FINALIZADO) {
+            var rodada = campeonato.fases().getFirst().rodadas().stream()
+                    .filter(r -> r.status() == RodadaStatus.EM_ANDAMENTO).findFirst().orElseThrow();
+            int classificacoes = campeonato.classificacaoPorRodada().size();
+            var placares = rodada.partidas().stream().map(p -> new ResultadoPartidaRequest(p.id(), placar())).toList();
+            service.registrarResultadosSemFinalizar(criado.id(), rodada.id(), placares);
+            service.registrarResultadosSemFinalizar(criado.id(), rodada.id(), placares);
+            recarregar();
+            var salvo = service.buscar(criado.id());
+            var aberta = salvo.fases().getFirst().rodadas().stream().filter(r -> r.id().equals(rodada.id())).findFirst().orElseThrow();
+            assertEquals(RodadaStatus.EM_ANDAMENTO, aberta.status());
+            assertEquals(CampeonatoStatus.EM_ANDAMENTO, salvo.status());
+            assertEquals(classificacoes, salvo.classificacaoPorRodada().size());
+            if (formato == TipoFormato.SWISS) {
+                assertThrows(RegraCampeonatoException.class, () -> service.gerarProximaRodadaSwiss(criado.id()));
+            } else {
+                assertTrue(salvo.fases().getFirst().rodadas().stream().filter(r -> r.numero() > rodada.numero())
+                        .allMatch(r -> r.status() == RodadaStatus.PENDENTE));
+            }
+            campeonato = service.finalizarRodada(criado.id(), rodada.id());
+            assertEquals(classificacoes + 1, campeonato.classificacaoPorRodada().size());
+            if (formato == TipoFormato.SWISS && campeonato.status() != CampeonatoStatus.FINALIZADO) {
+                service.gerarProximaRodadaSwiss(criado.id());
+                campeonato = service.buscar(criado.id());
+            }
+        }
+        assertEquals(CampeonatoStatus.FINALIZADO, service.buscar(criado.id()).status());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TipoFormato.class, names = {"LIGA", "LIGA_PARCIAL", "SWISS"})
     void iniciaPrimeiraRodadaEBloqueiaResultadosAteRodadaEntrarEmAndamento(TipoFormato formato) {
         var org = organizacoes.criar(new OrganizacaoRequest("Fluxo de rodadas", true));
         var criado = service.criar(new CampeonatoRequest(org.id(), 2026, selecoes(criarParticipantes(4))));

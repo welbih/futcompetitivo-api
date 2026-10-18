@@ -4,6 +4,8 @@ import com.datadynecode.futcompetitivo.api.dto.JogadorRequest;
 import com.datadynecode.futcompetitivo.api.dto.JogadorResponse;
 import com.datadynecode.futcompetitivo.api.service.JogadorService;
 import jakarta.validation.Valid;
+import com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro;
+import org.springframework.web.bind.annotation.RequestParam;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +28,8 @@ public class JogadorController {
     private final JogadorService service;
 
     @GetMapping
-    public List<JogadorResponse> listar() {
-        return service.listar();
+    public List<JogadorResponse> listar(@RequestParam(defaultValue = "ATIVOS") SituacaoCadastro situacao) {
+        return service.listar(situacao);
     }
 
     @GetMapping("/{id}")
@@ -47,6 +49,11 @@ public class JogadorController {
     public JogadorResponse atualizar(@PathVariable Long id,
             @Valid @RequestBody JogadorRequest request) {
         return service.atualizar(id, request);
+    }
+
+    @PutMapping("/{id}/ativar")
+    public JogadorResponse ativar(@PathVariable Long id) {
+        return service.ativar(id);
     }
 
     @DeleteMapping("/{id}")

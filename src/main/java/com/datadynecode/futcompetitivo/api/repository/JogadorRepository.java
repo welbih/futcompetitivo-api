@@ -8,5 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface JogadorRepository extends JpaRepository<Jogador, Long> {
     List<Jogador> findAllByAtivoTrueOrderByIdAsc();
 
+    List<Jogador> findAllByAtivoOrderByIdAsc(boolean ativo);
+
+    List<Jogador> findAllByOrderByIdAsc();
+
     Optional<Jogador> findByIdAndAtivoTrue(Long id);
 }
