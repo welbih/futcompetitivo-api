@@ -15,9 +15,12 @@ camadas desta API. O projeto de origem permanece intacto.
 - `dto` e `mapper`: dados de entrada/saída, sem expor entidades JPA diretamente.
 - `controller`: endpoints HTTP que delegam as operações aos serviços.
 
-O campeonato referencia participantes já cadastrados, cada um com seu jogador
-e sua equipe. Um participante pode integrar mais de um campeonato. Persistir o
-campeonato não cria nem exclui jogadores, equipes ou participantes em cascata.
+Na criação e atualização, o campeonato recebe uma lista de seleções com
+`jogadorId` e `equipeId`. A API sempre cria novos participantes na mesma transação
+do campeonato, mesmo que a combinação já exista em outro campeonato ou cadastro.
+Jogadores e equipes devem estar previamente cadastrados.
+Na atualização de um campeonato ainda não iniciado, a lista também recebe novos participantes.
+Trocar a seleção no campeonato não modifica o participante de outros campeonatos.
 
 ## Endpoints
 
@@ -39,12 +42,18 @@ campeonato não cria nem exclui jogadores, equipes ou participantes em cascata.
 {
   "organizacaoId": 1,
   "edicao": 2026,
-  "participanteIds": [1, 2, 3, 4]
+  "participantes": [
+    {"jogadorId": 1, "equipeId": 1},
+    {"jogadorId": 2, "equipeId": 2},
+    {"jogadorId": 3, "equipeId": 3},
+    {"jogadorId": 4, "equipeId": 4}
+  ]
 }
 ```
 
-Organização ativa, edição positiva e lista não vazia de participantes são obrigatórios.
-IDs repetidos são rejeitados. Participante, jogador e equipe precisam estar
+Organização ativa, edição positiva e lista com no mínimo 4 participantes são obrigatórios.
+O mesmo jogador não pode aparecer mais de uma vez no campeonato, mesmo com equipes diferentes.
+Essa regra vale para criação e atualização. Participante, jogador e equipe precisam estar
 ativos na criação, atualização e início do campeonato.
 
 O campeonato não possui nome próprio: pertence a uma organização por `ManyToOne`.
@@ -61,17 +70,17 @@ Ao iniciar, a lista de participantes é embaralhada antes de gerar a estrutura
 de qualquer formato. A ordem sorteada fica persistida no campeonato. No Swiss,
 isso define a primeira rodada; as seguintes utilizam a classificação atual.
 
-Liga completa, com no mínimo três participantes:
+Liga completa, com no mínimo quatro participantes:
 
 ```json
 { "formato": "LIGA", "turnoEreturno": true }
 ```
 
-Liga parcial: a quantidade de jogos deve ser positiva, menor que o número de
+Liga parcial: a quantidade de jogos deve ser no mínimo 3, menor que o número de
 participantes e produzir um total par quando multiplicada por esse número.
 
 ```json
-{ "formato": "LIGA_PARCIAL", "jogosPorParticipante": 2 }
+{ "formato": "LIGA_PARCIAL", "jogosPorParticipante": 3 }
 ```
 
 Suíço: a primeira rodada é criada ao iniciar. As seguintes são geradas após o

@@ -33,7 +33,34 @@ class CampeonatoControllerTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.erros.organizacaoId").value("organizacao é obrigatório."))
                 .andExpect(jsonPath("$.erros.edicao").value("edicao é obrigatório."))
-                .andExpect(jsonPath("$.erros.participanteIds").value("participantes é obrigatório."));
+                .andExpect(jsonPath("$.erros.participantes").value("participantes é obrigatório."));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void validaJogadorEEquipeDeCadaParticipante() throws Exception {
+        mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"organizacaoId\":1,\"edicao\":2026,\"participantes\":[{},{},{},{}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erros['participantes[0].jogadorId']").value("jogador é obrigatório."))
+                .andExpect(jsonPath("$.erros['participantes[0].equipeId']").value("equipe é obrigatório."));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void rejeitaMenosDeQuatroParticipantesNaCriacaoEAtualizacao() throws Exception {
+        for (int quantidade = 0; quantidade < 4; quantidade++) {
+            String participantes = java.util.stream.IntStream.range(0, quantidade)
+                    .mapToObj(i -> "{\"jogadorId\":" + (i + 1) + ",\"equipeId\":1}")
+                    .collect(java.util.stream.Collectors.joining(","));
+            String payload = "{\"organizacaoId\":1,\"edicao\":2026,\"participantes\":[" + participantes + "]}";
+            mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.erros.participantes").value("O campeonato deve ter no mínimo 4 participantes."));
+            mvc.perform(put("/campeonatos/1").contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.erros.participantes").value("O campeonato deve ter no mínimo 4 participantes."));
+        }
         verifyNoInteractions(service);
     }
 
@@ -42,7 +69,7 @@ class CampeonatoControllerTests {
         when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, new OrganizacaoResponse(1L, "Liga", true), 2026,
                 CampeonatoStatus.CRIADO, List.of(), List.of(), List.of()));
         mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"organizacaoId\":1,\"edicao\":2026,\"participanteIds\":[1,2,3]}"))
+                        .content("{\"organizacaoId\":1,\"edicao\":2026,\"participantes\":[{\"jogadorId\":1,\"equipeId\":2},{\"jogadorId\":2,\"equipeId\":2},{\"jogadorId\":3,\"equipeId\":2},{\"jogadorId\":4,\"equipeId\":2}]}"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "http://localhost/campeonatos/1"))
                 .andExpect(jsonPath("$.status").value("CRIADO"));

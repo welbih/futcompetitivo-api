@@ -5,7 +5,6 @@ import com.datadynecode.futcompetitivo.api.entity.*;
 import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import com.datadynecode.futcompetitivo.api.mapper.CampeonatoMapper;
 import com.datadynecode.futcompetitivo.api.repository.CampeonatoRepository;
-import com.datadynecode.futcompetitivo.api.repository.ParticipanteRepository;
 import com.datadynecode.futcompetitivo.api.repository.OrganizacaoRepository;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class CampeonatoService {
     private final CampeonatoRepository repository;
-    private final ParticipanteRepository participanteRepository;
+    private final ParticipanteService participanteService;
     private final OrganizacaoRepository organizacaoRepository;
     private final CampeonatoMapper mapper;
     private final GeradorFasesService geradorFases;
@@ -134,14 +133,16 @@ public class CampeonatoService {
     }
 
     private void preencher(Campeonato campeonato, CampeonatoRequest request) {
-        exigir(new HashSet<>(request.participanteIds()).size() == request.participanteIds().size(),
-                "A lista de participantes não pode conter duplicatas.");
-        List<Participante> participantes = request.participanteIds().stream().map(id ->
-                participanteRepository.findByIdAndAtivoTrue(id)
-                        .orElseThrow(() -> naoEncontrado("Participante", id))).toList();
-        participantes.forEach(this::validarParticipante);
+        exigir(request.participantes() != null && request.participantes().size() >= 4,
+                "O campeonato deve ter no mínimo 4 participantes.");
+        exigir(request.participantes().stream().map(ParticipanteRequest::jogadorId).distinct().count()
+                        == request.participantes().size(),
+                "O mesmo jogador não pode participar mais de uma vez no campeonato.");
         campeonato.setOrganizacao(organizacaoRepository.findByIdAndAtivoTrue(request.organizacaoId())
                 .orElseThrow(() -> naoEncontrado("Organização ativa", request.organizacaoId())));
+        List<Participante> participantes = request.participantes().stream()
+                .map(participanteService::criarEntidade).toList();
+        participantes.forEach(this::validarParticipante);
         campeonato.setEdicao(request.edicao());
         campeonato.getParticipantes().clear();
         campeonato.getParticipantes().addAll(participantes);

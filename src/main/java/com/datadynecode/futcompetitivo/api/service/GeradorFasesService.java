@@ -21,8 +21,10 @@ public class GeradorFasesService {
             }
             case LIGA_PARCIAL -> {
                 Integer jogos = request.jogosPorParticipante();
-                exigir(jogos != null && jogos > 0 && jogos < participantes.size(),
-                        "jogosPorParticipante deve ser positivo e menor que o total de participantes.");
+                exigir(jogos != null && jogos >= 3,
+                        "A liga parcial deve ter no mínimo 3 jogos por participante.");
+                exigir(jogos < participantes.size(),
+                        "jogosPorParticipante deve ser menor que o total de participantes.");
                 exigir(((long) participantes.size() * jogos) % 2 == 0,
                         "O total de participantes multiplicado pelos jogos deve ser par.");
                 fase.setTipo(TipoFase.LIGA);

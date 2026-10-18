@@ -54,7 +54,7 @@ class FlywayMigrationTests {
             var equipe = equipes.criar(new EquipeRequest("Equipe " + i, "https://example.com/logo.png"));
             ids.add(participantes.criar(new ParticipanteRequest(jogador.id(), equipe.id())).id());
         }
-        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga migrada", true)).id(), 2026, ids));
+        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga migrada", true)).id(), 2026, selecoes(ids)));
         var iniciado = campeonatos.iniciar(criado.id(),
                 new IniciarCampeonatoRequest(TipoFormato.LIGA, false, null, null));
         for (var rodada : iniciado.fases().getFirst().rodadas())
@@ -73,5 +73,13 @@ class FlywayMigrationTests {
         entityManager.flush();
         entityManager.clear();
         assertEquals(3, campeonatos.buscar(criado.id()).classificacaoPorRodada().size());
+    }
+
+    private List<ParticipanteRequest> selecoes(List<Long> ids) {
+        return ids.stream().map(id -> {
+            if (id == Long.MAX_VALUE) return new ParticipanteRequest(id, id);
+            var participante = participantes.buscar(id);
+            return new ParticipanteRequest(participante.jogador().id(), participante.equipe().id());
+        }).toList();
     }
 }

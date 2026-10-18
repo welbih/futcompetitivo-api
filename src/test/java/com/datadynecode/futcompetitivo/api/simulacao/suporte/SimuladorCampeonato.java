@@ -31,7 +31,7 @@ public class SimuladorCampeonato {
             TipoFormato formato, boolean returno, Integer jogosPorParticipante, Integer totalRodadas,
             int totalPartidasEsperado, Integer jogosEsperadosPorParticipante) {
         List<Long> ids = criarParticipantes(quantidade);
-        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest(nome, true)).id(), 2026, ids));
+        var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest(nome, true)).id(), 2026, selecoes(ids)));
         campeonatos.iniciar(criado.id(), new IniciarCampeonatoRequest(
                 formato, returno, jogosPorParticipante, totalRodadas));
         recarregar();
@@ -196,5 +196,13 @@ public class SimuladorCampeonato {
             else if (pro == contra) empates++;
             else derrotas++;
         }
+    }
+
+    private List<ParticipanteRequest> selecoes(List<Long> ids) {
+        return ids.stream().map(id -> {
+            if (id == Long.MAX_VALUE) return new ParticipanteRequest(id, id);
+            var participante = participantes.buscar(id);
+            return new ParticipanteRequest(participante.jogador().id(), participante.equipe().id());
+        }).toList();
     }
 }
