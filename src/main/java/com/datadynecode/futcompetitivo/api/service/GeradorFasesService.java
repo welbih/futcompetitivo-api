@@ -41,6 +41,8 @@ public class GeradorFasesService {
             case ELIMINATORIO, MISTA -> throw new RegraCampeonatoException(
                     "Formato ainda não implementado no projeto de origem: " + request.formato());
         }
+        if (!fase.getRodadas().isEmpty())
+            fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
         return fase;
     }
 

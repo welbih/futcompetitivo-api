@@ -83,6 +83,8 @@ public class CampeonatoService {
                 .anyMatch(p -> p.getId().equals(partidaId))).findFirst()
                 .orElseThrow(() -> naoEncontrado("Partida", partidaId));
         Partida partida = rodada.getPartidas().stream().filter(p -> p.getId().equals(partidaId)).findFirst().orElseThrow();
+        exigir(partida.isFinalizada() || rodada.getStatus() == RodadaStatus.EM_ANDAMENTO,
+                "Só é possível adicionar resultado em uma rodada em andamento.");
         exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
         validarResultado(request);
@@ -103,6 +105,12 @@ public class CampeonatoService {
                     || fase.getRodadas().size() == fase.getTotalRodadas();
             if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
                 campeonato.setStatus(CampeonatoStatus.FINALIZADO);
+            rodadas.stream().filter(r -> r.getNumero() > rodada.getNumero()
+                            && r.getStatus() == RodadaStatus.PENDENTE)
+                    .findFirst().filter(proxima -> rodadas.stream()
+                            .filter(r -> r.getNumero() < proxima.getNumero())
+                            .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
+                    .ifPresent(proxima -> proxima.setStatus(RodadaStatus.EM_ANDAMENTO));
         }
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }

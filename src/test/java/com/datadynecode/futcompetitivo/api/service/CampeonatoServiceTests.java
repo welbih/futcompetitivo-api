@@ -8,6 +8,8 @@ import com.datadynecode.futcompetitivo.api.service.*;
 import jakarta.persistence.EntityManager;
 import java.util.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -27,6 +29,40 @@ class CampeonatoServiceTests {
     @Autowired private ParticipanteService participantes;
     @Autowired private CampeonatoRepository repository;
     @Autowired private EntityManager entityManager;
+
+    @ParameterizedTest
+    @EnumSource(value = TipoFormato.class, names = {"LIGA", "LIGA_PARCIAL", "SWISS"})
+    void iniciaPrimeiraRodadaEBloqueiaResultadosAteRodadaEntrarEmAndamento(TipoFormato formato) {
+        var org = organizacoes.criar(new OrganizacaoRequest("Fluxo de rodadas", true));
+        var criado = service.criar(new CampeonatoRequest(org.id(), 2026, selecoes(criarParticipantes(4))));
+        var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(formato, false,
+                formato == TipoFormato.LIGA_PARCIAL ? 3 : null, formato == TipoFormato.SWISS ? 2 : null));
+        recarregar();
+        var rodadas = service.buscar(criado.id()).fases().getFirst().rodadas();
+        var primeira = rodadas.getFirst();
+        assertEquals(RodadaStatus.EM_ANDAMENTO, primeira.status());
+        assertTrue(rodadas.stream().skip(1).allMatch(r -> r.status() == RodadaStatus.PENDENTE));
+
+        var entidade = repository.findById(criado.id()).orElseThrow();
+        entidade.getFases().getFirst().getRodadas().getFirst().setStatus(RodadaStatus.PENDENTE);
+        var erro = assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(criado.id(),
+                primeira.partidas().getFirst().id(), placar()));
+        assertEquals("Só é possível adicionar resultado em uma rodada em andamento.", erro.getMessage());
+        entidade.getFases().getFirst().getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
+
+        service.registrarResultado(criado.id(), primeira.partidas().getFirst().id(), placar());
+        assertEquals(RodadaStatus.EM_ANDAMENTO, service.buscar(criado.id()).fases().getFirst().rodadas().getFirst().status());
+        primeira.partidas().stream().skip(1).forEach(p -> service.registrarResultado(criado.id(), p.id(), placar()));
+        recarregar();
+        assertEquals(RodadaStatus.FINALIZADA, service.buscar(criado.id()).fases().getFirst().rodadas().getFirst().status());
+        if (formato == TipoFormato.SWISS) {
+            assertEquals(RodadaStatus.EM_ANDAMENTO, service.gerarProximaRodadaSwiss(criado.id()).status());
+        } else {
+            var seguintes = service.buscar(criado.id()).fases().getFirst().rodadas();
+            assertEquals(RodadaStatus.EM_ANDAMENTO, seguintes.get(1).status());
+            assertTrue(seguintes.stream().skip(2).allMatch(r -> r.status() == RodadaStatus.PENDENTE));
+        }
+    }
 
     @Test
     void exigeQuatroParticipantesNaCriacaoEAtualizacao() {

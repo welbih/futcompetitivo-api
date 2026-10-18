@@ -67,7 +67,14 @@ preserva campeonatos existentes, mas impede novos vínculos e novos inícios.
 ### Iniciar
 
 Ao iniciar, a lista de participantes é embaralhada antes de gerar a estrutura
-de qualquer formato. A ordem sorteada fica persistida no campeonato. No Swiss,
+de qualquer formato. A primeira rodada fica `EM_ANDAMENTO` e as demais ficam
+`PENDENTE`. Novos resultados só podem ser adicionados na rodada em andamento.
+Ao finalizar todas as partidas dessa rodada, a próxima rodada já gerada entra
+automaticamente em andamento. No Swiss, a próxima rodada entra em andamento
+quando é gerada pelo endpoint correspondente. A correção de placares já registrados
+continua permitida, inclusive em rodadas finalizadas.
+
+A ordem sorteada fica persistida no campeonato. No Swiss,
 isso define a primeira rodada; as seguintes utilizam a classificação atual.
 
 Liga completa, com no mínimo quatro participantes:
