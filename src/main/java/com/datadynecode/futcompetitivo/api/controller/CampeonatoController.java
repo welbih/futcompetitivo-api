@@ -51,6 +51,17 @@ public class CampeonatoController {
         return service.registrarResultado(id, partidaId, request);
     }
 
+    @PutMapping("/{id}/rodadas/{rodadaId}/resultados")
+    public CampeonatoResponse registrarResultadosSemFinalizar(@PathVariable Long id, @PathVariable Long rodadaId,
+            @Valid @RequestBody ResultadosRodadaRequest request) {
+        return service.registrarResultadosSemFinalizar(id, rodadaId, request.resultados());
+    }
+
+    @PostMapping("/{id}/rodadas/{rodadaId}/finalizar")
+    public CampeonatoResponse finalizarRodada(@PathVariable Long id, @PathVariable Long rodadaId) {
+        return service.finalizarRodada(id, rodadaId);
+    }
+
     @GetMapping("/{id}/classificacao")
     public ClassificacaoResponse classificacao(@PathVariable Long id) { return service.classificacao(id); }
 

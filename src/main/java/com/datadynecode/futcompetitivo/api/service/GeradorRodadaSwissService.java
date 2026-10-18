@@ -18,6 +18,7 @@ public class GeradorRodadaSwissService {
                 : new ArrayList<>(classificacao.getTabela().stream()
                         .map(ClassificacaoParticipante::getParticipante).toList());
         Rodada rodada = new Rodada(fase.getRodadas().size() + 1);
+        rodada.setStatus(RodadaStatus.EM_ANDAMENTO);
         Map<String, Partida> anteriores = new HashMap<>();
         Map<Long, Integer> folgas = new HashMap<>();
         fase.getRodadas().stream().sorted(Comparator.comparing(Rodada::getNumero)).forEach(r -> {

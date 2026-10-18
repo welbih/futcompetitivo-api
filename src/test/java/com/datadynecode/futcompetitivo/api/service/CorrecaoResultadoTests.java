@@ -135,9 +135,9 @@ class CorrecaoResultadoTests {
             var equipe = equipes.criar(new EquipeRequest("Equipe " + i, "https://example.com/logo.png"));
             ids.add(participantes.criar(new ParticipanteRequest(jogador.id(), equipe.id())).id());
         }
-        var campeonato = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Correcao", true)).id(), 2026, ids));
+        var campeonato = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Correcao", true)).id(), 2026, selecoes(ids)));
         return service.iniciar(campeonato.id(), new IniciarCampeonatoRequest(formato, false,
-                formato == TipoFormato.LIGA_PARCIAL ? 2 : null, formato == TipoFormato.SWISS ? 3 : null));
+                formato == TipoFormato.LIGA_PARCIAL ? 3 : null, formato == TipoFormato.SWISS ? 3 : null));
     }
 
     private ResultadoRequest placar(int casa, int fora) {
@@ -145,4 +145,12 @@ class CorrecaoResultadoTests {
     }
 
     private void recarregar() { entityManager.flush(); entityManager.clear(); }
+
+    private List<ParticipanteRequest> selecoes(List<Long> ids) {
+        return ids.stream().map(id -> {
+            if (id == Long.MAX_VALUE) return new ParticipanteRequest(id, id);
+            var participante = participantes.buscar(id);
+            return new ParticipanteRequest(participante.jogador().id(), participante.equipe().id());
+        }).toList();
+    }
 }

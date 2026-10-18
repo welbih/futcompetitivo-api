@@ -4,6 +4,8 @@ import com.datadynecode.futcompetitivo.api.dto.EquipeRequest;
 import com.datadynecode.futcompetitivo.api.dto.EquipeResponse;
 import com.datadynecode.futcompetitivo.api.service.EquipeService;
 import jakarta.validation.Valid;
+import com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro;
+import org.springframework.web.bind.annotation.RequestParam;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +28,8 @@ public class EquipeController {
     private final EquipeService service;
 
     @GetMapping
-    public List<EquipeResponse> listar() {
-        return service.listar();
+    public List<EquipeResponse> listar(@RequestParam(defaultValue = "ATIVOS") SituacaoCadastro situacao) {
+        return service.listar(situacao);
     }
 
     @GetMapping("/{id}")
@@ -47,6 +49,11 @@ public class EquipeController {
     public EquipeResponse atualizar(@PathVariable Long id,
             @Valid @RequestBody EquipeRequest request) {
         return service.atualizar(id, request);
+    }
+
+    @PutMapping("/{id}/ativar")
+    public EquipeResponse ativar(@PathVariable Long id) {
+        return service.ativar(id);
     }
 
     @DeleteMapping("/{id}")

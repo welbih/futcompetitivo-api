@@ -68,4 +68,28 @@ class EquipeControllerValidationTests {
         mvc.perform(put("/equipes/1").contentType(MediaType.APPLICATION_JSON).content(corpo))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void listagemAceitaSituacaoEPreservaPadraoAtivos() throws Exception {
+        for (var situacao : com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.values()) {
+            mvc.perform(get("/equipes").param("situacao", situacao.name())).andExpect(status().isOk());
+            verify(service).listar(situacao);
+        }
+        clearInvocations(service);
+        mvc.perform(get("/equipes")).andExpect(status().isOk());
+        verify(service).listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.ATIVOS);
+        clearInvocations(service);
+        mvc.perform(get("/equipes").param("situacao", "INVALIDO")).andExpect(status().isBadRequest());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void ativacaoRetornaRegistroAtivo() throws Exception {
+        when(service.ativar(1L)).thenReturn(new EquipeResponse(1L, "Ativo", "valor", true));
+        mvc.perform(put("/equipes/1/ativar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.ativo").value(true));
+        verify(service).ativar(1L);
+    }
 }

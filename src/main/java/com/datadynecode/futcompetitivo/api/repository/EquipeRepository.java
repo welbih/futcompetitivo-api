@@ -8,5 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EquipeRepository extends JpaRepository<Equipe, Long> {
     List<Equipe> findAllByAtivoTrueOrderByIdAsc();
 
+    List<Equipe> findAllByAtivoOrderByIdAsc(boolean ativo);
+
+    List<Equipe> findAllByOrderByIdAsc();
+
     Optional<Equipe> findByIdAndAtivoTrue(Long id);
 }

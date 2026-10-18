@@ -82,4 +82,41 @@ class EquipeServiceTests {
                 assertThrows(ResponseStatusException.class,
                         () -> service.desativar(Long.MAX_VALUE)).getStatusCode());
     }
+
+    @Test
+    void filtraAtivosInativosEAmbos() {
+        var ativo = service.criar(new EquipeRequest("Filtro", "https://example.com/logo.png"));
+        var inativo = service.criar(new EquipeRequest("Filtro", "https://example.com/logo.png"));
+        service.desativar(inativo.id());
+        entityManager.flush();
+        entityManager.clear();
+        var ativos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.ATIVOS);
+        var inativos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.INATIVOS);
+        var ambos = service.listar(com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro.AMBOS);
+        assertTrue(ativos.stream().allMatch(EquipeResponse::ativo));
+        assertTrue(inativos.stream().noneMatch(EquipeResponse::ativo));
+        assertTrue(ativos.stream().anyMatch(r -> r.id().equals(ativo.id())));
+        assertTrue(inativos.stream().anyMatch(r -> r.id().equals(inativo.id())));
+        assertEquals(ativos.size() + inativos.size(), ambos.size());
+        assertEquals(ativos, service.listar());
+        assertEquals(ambos.stream().map(EquipeResponse::id).sorted().toList(),
+                ambos.stream().map(EquipeResponse::id).toList());
+    }
+
+    @Test
+    void reativaSemDuplicarEPreservaDados() {
+        var criado = service.criar(new EquipeRequest("Reativada", "https://example.com/logo.png"));
+        service.desativar(criado.id());
+        entityManager.flush();
+        entityManager.clear();
+        long quantidade = repository.count();
+        assertEquals(criado, service.ativar(criado.id()));
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(criado, service.buscar(criado.id()));
+        assertEquals(criado, service.ativar(criado.id()));
+        assertEquals(quantidade, repository.count());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> service.ativar(Long.MAX_VALUE)).getStatusCode());
+    }
 }

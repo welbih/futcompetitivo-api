@@ -15,9 +15,12 @@ camadas desta API. O projeto de origem permanece intacto.
 - `dto` e `mapper`: dados de entrada/saída, sem expor entidades JPA diretamente.
 - `controller`: endpoints HTTP que delegam as operações aos serviços.
 
-O campeonato referencia participantes já cadastrados, cada um com seu jogador
-e sua equipe. Um participante pode integrar mais de um campeonato. Persistir o
-campeonato não cria nem exclui jogadores, equipes ou participantes em cascata.
+Na criação e atualização, o campeonato recebe uma lista de seleções com
+`jogadorId` e `equipeId`. A API sempre cria novos participantes na mesma transação
+do campeonato, mesmo que a combinação já exista em outro campeonato ou cadastro.
+Jogadores e equipes devem estar previamente cadastrados.
+Na atualização de um campeonato ainda não iniciado, a lista também recebe novos participantes.
+Trocar a seleção no campeonato não modifica o participante de outros campeonatos.
 
 ## Endpoints
 
@@ -39,12 +42,18 @@ campeonato não cria nem exclui jogadores, equipes ou participantes em cascata.
 {
   "organizacaoId": 1,
   "edicao": 2026,
-  "participanteIds": [1, 2, 3, 4]
+  "participantes": [
+    {"jogadorId": 1, "equipeId": 1},
+    {"jogadorId": 2, "equipeId": 2},
+    {"jogadorId": 3, "equipeId": 3},
+    {"jogadorId": 4, "equipeId": 4}
+  ]
 }
 ```
 
-Organização ativa, edição positiva e lista não vazia de participantes são obrigatórios.
-IDs repetidos são rejeitados. Participante, jogador e equipe precisam estar
+Organização ativa, edição positiva e lista com no mínimo 4 participantes são obrigatórios.
+O mesmo jogador não pode aparecer mais de uma vez no campeonato, mesmo com equipes diferentes.
+Essa regra vale para criação e atualização. Participante, jogador e equipe precisam estar
 ativos na criação, atualização e início do campeonato.
 
 O campeonato não possui nome próprio: pertence a uma organização por `ManyToOne`.
@@ -58,20 +67,27 @@ preserva campeonatos existentes, mas impede novos vínculos e novos inícios.
 ### Iniciar
 
 Ao iniciar, a lista de participantes é embaralhada antes de gerar a estrutura
-de qualquer formato. A ordem sorteada fica persistida no campeonato. No Swiss,
+de qualquer formato. A primeira rodada fica `EM_ANDAMENTO` e as demais ficam
+`PENDENTE`. Novos resultados só podem ser adicionados na rodada em andamento.
+Ao finalizar todas as partidas dessa rodada, a próxima rodada já gerada entra
+automaticamente em andamento. No Swiss, a próxima rodada entra em andamento
+quando é gerada pelo endpoint correspondente. A correção de placares já registrados
+continua permitida, inclusive em rodadas finalizadas.
+
+A ordem sorteada fica persistida no campeonato. No Swiss,
 isso define a primeira rodada; as seguintes utilizam a classificação atual.
 
-Liga completa, com no mínimo três participantes:
+Liga completa, com no mínimo quatro participantes:
 
 ```json
 { "formato": "LIGA", "turnoEreturno": true }
 ```
 
-Liga parcial: a quantidade de jogos deve ser positiva, menor que o número de
+Liga parcial: a quantidade de jogos deve ser no mínimo 3, menor que o número de
 participantes e produzir um total par quando multiplicada por esse número.
 
 ```json
-{ "formato": "LIGA_PARCIAL", "jogosPorParticipante": 2 }
+{ "formato": "LIGA_PARCIAL", "jogosPorParticipante": 3 }
 ```
 
 Suíço: a primeira rodada é criada ao iniciar. As seguintes são geradas após o
@@ -172,3 +188,31 @@ Os testes estão organizados em `controller` (contratos e validação HTTP),
 `simulacao/suporte` contém o simulador, a definição dos cenários e o executor dos
 mains, compartilhados sem instanciar classes de teste. Somente o teste de
 inicialização da aplicação permanece no pacote raiz.
+
+## Resultados em lote sem finalizar a rodada
+
+O envio individual de resultado continua finalizando automaticamente a rodada
+quando todas as partidas têm placar. Como alternativa, envie um ou mais resultados
+pela rota `PUT /campeonatos/{id}/rodadas/{rodadaId}/resultados`:
+
+```json
+{
+  "resultados": [
+    {"partidaId": 10, "resultado": {"golsMandante": 2, "golsVisitante": 1}},
+    {"partidaId": 11, "resultado": {"golsMandante": 0, "golsVisitante": 0}}
+  ]
+}
+```
+
+Use o ID da rodada e os IDs das partidas que deseja preencher ou corrigir.
+A rodada deve estar `EM_ANDAMENTO`; partidas duplicadas, de outras rodadas ou
+uma lista vazia são rejeitadas. A operação é transacional. Partidas não enviadas
+mantêm seus placares. É possível enviar uma única partida por vez e reenviar
+placares para corrigi-los enquanto a rodada está em andamento.
+
+As partidas ficam finalizadas, mas a rodada permanece `EM_ANDAMENTO`, sem atualizar
+sua classificação, liberar a próxima rodada ou encerrar o campeonato.
+Para concluir, envie `POST /campeonatos/{id}/rodadas/{rodadaId}/finalizar`, sem corpo.
+Todas as partidas devem ter resultado. A finalização atualiza a classificação
+e avança a próxima rodada da liga; no Swiss, a próxima continua sendo gerada
+pelo endpoint próprio. Na última rodada, o campeonato é finalizado.

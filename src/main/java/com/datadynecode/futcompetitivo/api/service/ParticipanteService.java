@@ -35,9 +35,14 @@ public class ParticipanteService {
 
     @Transactional
     public ParticipanteResponse criar(ParticipanteRequest request) {
+        return mapper.toResponse(criarEntidade(request));
+    }
+
+    @Transactional
+    public Participante criarEntidade(ParticipanteRequest request) {
         Participante participante = new Participante();
         definirRelacionamentos(participante, request);
-        return mapper.toResponse(repository.save(participante));
+        return repository.save(participante);
     }
 
     @Transactional

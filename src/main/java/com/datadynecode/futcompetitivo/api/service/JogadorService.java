@@ -6,6 +6,7 @@ import com.datadynecode.futcompetitivo.api.entity.Jogador;
 import com.datadynecode.futcompetitivo.api.mapper.JogadorMapper;
 import com.datadynecode.futcompetitivo.api.repository.JogadorRepository;
 import java.util.List;
+import com.datadynecode.futcompetitivo.api.dto.SituacaoCadastro;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,8 +22,16 @@ public class JogadorService {
     private final JogadorMapper mapper;
 
     public List<JogadorResponse> listar() {
-        return repository.findAllByAtivoTrueOrderByIdAsc().stream()
-                .map(mapper::toResponse).toList();
+        return listar(SituacaoCadastro.ATIVOS);
+    }
+
+    public List<JogadorResponse> listar(SituacaoCadastro situacao) {
+        List<Jogador> registros = switch (situacao) {
+            case ATIVOS -> repository.findAllByAtivoOrderByIdAsc(true);
+            case INATIVOS -> repository.findAllByAtivoOrderByIdAsc(false);
+            case AMBOS -> repository.findAllByOrderByIdAsc();
+        };
+        return registros.stream().map(mapper::toResponse).toList();
     }
 
     public JogadorResponse buscar(Long id) {
@@ -40,6 +49,14 @@ public class JogadorService {
     public JogadorResponse atualizar(Long id, JogadorRequest request) {
         Jogador jogador = buscarAtivo(id);
         mapper.atualizar(jogador, request);
+        return mapper.toResponse(repository.save(jogador));
+    }
+
+    @Transactional
+    public JogadorResponse ativar(Long id) {
+        Jogador jogador = repository.findById(id)
+                .orElseThrow(() -> naoEncontrado(id));
+        jogador.setAtivo(true);
         return mapper.toResponse(repository.save(jogador));
     }
 

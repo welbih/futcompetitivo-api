@@ -9,4 +9,5 @@ public interface ParticipanteRepository extends JpaRepository<Participante, Long
     List<Participante> findAllByAtivoTrueOrderByIdAsc();
 
     Optional<Participante> findByIdAndAtivoTrue(Long id);
+
 }
