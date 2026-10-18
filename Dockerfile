@@ -8,7 +8,7 @@ COPY mvnw pom.xml ./
 RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 
 COPY src/ src/
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp -DskipTests package
+RUN --mount=type=cache,id=maven-cache,target=/root/.m2 ./mvnw -B -ntp -DskipTests package
 
 FROM eclipse-temurin:25-jre-noble AS runtime
 WORKDIR /app
