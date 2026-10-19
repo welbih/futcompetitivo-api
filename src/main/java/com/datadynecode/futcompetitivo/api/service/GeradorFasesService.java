@@ -57,6 +57,18 @@ public class GeradorFasesService {
                 fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
                 gerarLiga(fase, participantes);
             }
+            case GRUPOS -> {
+                exigir(participantes.size() >= 4, "A fase de grupos deve ter no mínimo 4 participantes.");
+                Integer classificados = request.quantidadeClassificados();
+                exigir(classificados != null && classificados >= 4,
+                        "O mata-mata deve ter no mínimo 4 classificados.");
+                exigir(classificados <= participantes.size(),
+                        "A quantidade de classificados não pode exceder o total de participantes.");
+                fase.setTipo(TipoFase.GRUPOS);
+                fase.setQuantidadeClassificados(classificados);
+                fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
+                gerarGrupos(fase, participantes);
+            }
         }
         if (!fase.getRodadas().isEmpty())
             fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
@@ -90,6 +102,24 @@ public class GeradorFasesService {
                 turno.getPartidas().forEach(p -> retorno.getPartidas()
                         .add(new Partida(p.getVisitante(), p.getMandante())));
                 fase.getRodadas().add(retorno);
+            }
+        }
+    }
+
+    private void gerarGrupos(Fase fase, List<Participante> participantes) {
+        for (int indiceGrupo = 0; indiceGrupo < 2; indiceGrupo++) {
+            Grupo grupo = new Grupo();
+            grupo.setNome(indiceGrupo == 0 ? "Grupo A" : "Grupo B");
+            for (int i = indiceGrupo; i < participantes.size(); i += 2)
+                grupo.getParticipantes().add(participantes.get(i));
+            fase.getGrupos().add(grupo);
+            Fase agendaGrupo = new Fase();
+            agendaGrupo.setTurnoEreturno(fase.isTurnoEreturno());
+            gerarLiga(agendaGrupo, grupo.getParticipantes());
+            for (Rodada rodada : agendaGrupo.getRodadas()) {
+                while (fase.getRodadas().size() < rodada.getNumero())
+                    fase.getRodadas().add(new Rodada(fase.getRodadas().size() + 1));
+                fase.getRodadas().get(rodada.getNumero() - 1).getPartidas().addAll(rodada.getPartidas());
             }
         }
     }

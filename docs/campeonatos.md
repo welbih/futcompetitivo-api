@@ -1,5 +1,8 @@
 # Campeonatos
 
+O formato `GRUPOS` (dois grupos seguidos de mata-mata) está documentado em
+[Fase de grupos](fase-de-grupos.md), incluindo corte ímpar com vaga extra por desempenho.
+
 Adaptação das classes de campeonato do projeto `futebol-competitivo` para as
 camadas desta API. O projeto de origem permanece intacto.
 

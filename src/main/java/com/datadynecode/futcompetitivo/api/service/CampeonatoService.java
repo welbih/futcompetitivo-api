@@ -26,6 +26,7 @@ public class CampeonatoService {
     private final GeradorClassificacaoService geradorClassificacao;
     private final GeradorRodadaSwissService geradorSwiss;
     private final GeradorEliminatorioService eliminatorio;
+    private final ClassificacaoGruposService classificacaoGrupos;
 
     public List<CampeonatoResponse> listar() {
         return repository.findAll(Sort.by("id")).stream().map(mapper::toResponse).toList();
@@ -123,7 +124,7 @@ public class CampeonatoService {
         if (fase.getQuantidadeClassificados() != null && campeonato.getFases().size() > 1) {
             exigir(campeonato.getFases().getLast().getRodadas().stream()
                             .flatMap(r -> r.getPartidas().stream()).noneMatch(Partida::isFinalizada),
-                    "Não é possível corrigir a liga após registrar resultados no mata-mata.");
+                    "Não é possível corrigir a fase classificatória após registrar resultados no mata-mata.");
         }
         partida.setResultado(new Resultado(Boolean.TRUE.equals(request.golDeOuro()), request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
@@ -195,13 +196,16 @@ public class CampeonatoService {
                 campeonato.setStatus(CampeonatoStatus.FINALIZADO);
             return;
         }
-        recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
+        if (fase.getTipo() == TipoFase.GRUPOS) classificacaoGrupos.recalcular(fase, rodada.getNumero());
+        else recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
         boolean todasGeradas = fase.getTipo() != TipoFase.SWISS
                 || fase.getRodadas().size() == fase.getTotalRodadas();
         if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA)) {
             if (fase.getQuantidadeClassificados() != null) {
-                List<Participante> classificados = ultima(campeonato).getTabela().stream()
-                        .limit(fase.getQuantidadeClassificados()).map(ClassificacaoParticipante::getParticipante).toList();
+                List<Participante> classificados = fase.getTipo() == TipoFase.GRUPOS
+                        ? classificacaoGrupos.classificados(fase, campeonato.getParticipantes())
+                        : ultima(campeonato).getTabela().stream().limit(fase.getQuantidadeClassificados())
+                                .map(ClassificacaoParticipante::getParticipante).toList();
                 if (campeonato.getFases().size() == 1) {
                     Fase mataMata = new Fase();
                     mataMata.setOrdem(2);
@@ -232,15 +236,42 @@ public class CampeonatoService {
     }
 
     public ClassificacaoResponse classificacao(Long id) {
-        Classificacao classificacao = ultima(buscarEntidade(id));
+        Campeonato campeonato = buscarEntidade(id);
+        exigir(campeonato.getFases().isEmpty() || campeonato.getFases().getFirst().getTipo() != TipoFase.GRUPOS,
+                "Consulte a classificação de cada grupo pelo endpoint de grupos.");
+        Classificacao classificacao = ultima(campeonato);
         if (classificacao == null) throw new RegraCampeonatoException("Não há classificação disponível.");
         return mapper.toResponse(classificacao);
     }
 
     public List<ParticipanteResponse> classificados(Long id, int quantidade) {
         exigir(quantidade > 0, "quantidade deve ser positiva.");
+        Campeonato campeonato = buscarEntidade(id);
+        if (!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS) {
+            exigir(campeonato.getFases().getFirst().getRodadas().stream()
+                    .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Fase de grupos ainda não finalizada.");
+            List<Long> ids = classificacaoGrupos.classificados(campeonato.getFases().getFirst(), campeonato.getParticipantes())
+                    .stream().limit(quantidade).map(Participante::getId).toList();
+            var participantes = mapper.toResponse(campeonato).participantes();
+            return ids.stream().map(participanteId -> participantes.stream()
+                    .filter(p -> p.id().equals(participanteId)).findFirst().orElseThrow()).toList();
+        }
         return classificacao(id).tabela().stream().limit(quantidade)
                 .map(ClassificacaoParticipanteResponse::participante).toList();
+    }
+
+    public List<GrupoResponse> grupos(Long id) {
+        Campeonato campeonato = buscarEntidade(id);
+        exigir(!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS,
+                "Campeonato não utiliza fase de grupos.");
+        return campeonato.getFases().getFirst().getGrupos().stream().map(mapper::toResponse).toList();
+    }
+
+    public ClassificacaoResponse classificacaoGrupo(Long id, Long grupoId) {
+        GrupoResponse grupo = grupos(id).stream().filter(g -> g.id().equals(grupoId)).findFirst()
+                .orElseThrow(() -> naoEncontrado("Grupo", grupoId));
+        exigir(!grupo.classificacaoPorRodada().isEmpty(), "Não há classificação disponível para o grupo.");
+        return grupo.classificacaoPorRodada().getLast();
     }
 
     private void preencher(Campeonato campeonato, CampeonatoRequest request) {

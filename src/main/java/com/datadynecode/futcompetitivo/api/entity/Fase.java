@@ -26,6 +26,11 @@ public class Fase {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fase_id")
+    @OrderBy("nome ASC")
+    private List<Grupo> grupos = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "fase_id")
     @OrderBy("numero ASC")
     private List<Rodada> rodadas = new ArrayList<>();
 
