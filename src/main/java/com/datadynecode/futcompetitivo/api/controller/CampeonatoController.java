@@ -68,6 +68,14 @@ public class CampeonatoController {
     @GetMapping("/{id}/classificacao")
     public ClassificacaoResponse classificacao(@PathVariable Long id) { return service.classificacao(id); }
 
+    @GetMapping("/{id}/grupos")
+    public List<GrupoResponse> grupos(@PathVariable Long id) { return service.grupos(id); }
+
+    @GetMapping("/{id}/grupos/{grupoId}/classificacao")
+    public ClassificacaoResponse classificacaoGrupo(@PathVariable Long id, @PathVariable Long grupoId) {
+        return service.classificacaoGrupo(id, grupoId);
+    }
+
     @GetMapping("/{id}/classificados")
     public List<ParticipanteResponse> classificados(@PathVariable Long id, @RequestParam int quantidade) {
         return service.classificados(id, quantidade);

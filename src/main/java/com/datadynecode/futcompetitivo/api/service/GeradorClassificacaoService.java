@@ -11,6 +11,16 @@ public class GeradorClassificacaoService {
     // Cada rodada recebe um novo snapshot; as estatísticas anteriores nunca são alteradas.
     public Classificacao gerar(List<Participante> participantes, List<Partida> partidasAcumuladas,
             int rodada, Classificacao anterior) {
+        return gerar(participantes, partidasAcumuladas, rodada, anterior, false);
+    }
+
+    public Classificacao gerarComSorteioInicial(List<Participante> participantes, List<Partida> partidasAcumuladas,
+            int rodada, Classificacao anterior) {
+        return gerar(participantes, partidasAcumuladas, rodada, anterior, true);
+    }
+
+    private Classificacao gerar(List<Participante> participantes, List<Partida> partidasAcumuladas,
+            int rodada, Classificacao anterior, boolean sorteioInicial) {
         Map<Long, ClassificacaoParticipante> tabela = new LinkedHashMap<>();
         participantes.forEach(p -> tabela.put(p.getId(), new ClassificacaoParticipante(p)));
         for (Partida partida : partidasAcumuladas) {
@@ -23,9 +33,16 @@ public class GeradorClassificacaoService {
         }
         List<ClassificacaoParticipante> linhas = new ArrayList<>(tabela.values());
         // O sorteio só resolve empates após os critérios esportivos.
-        linhas.sort(new ComparadorClassificacao(List.of(new CriterioPontos(), new CriterioVitorias(),
-                new CriterioSaldoGols(), new CriterioGolsPro(), new CriterioSorteio()))
-                .thenComparing(c -> c.getParticipante().getId()));
+        List<CriterioDesempate> criterios = new ArrayList<>(List.of(new CriterioPontos(), new CriterioVitorias(),
+                new CriterioSaldoGols(), new CriterioGolsPro()));
+        if (!sorteioInicial) criterios.add(new CriterioSorteio());
+        Comparator<ClassificacaoParticipante> comparador = new ComparadorClassificacao(criterios);
+        if (sorteioInicial) {
+            Map<Long, Integer> ordem = new HashMap<>();
+            for (int i = 0; i < participantes.size(); i++) ordem.put(participantes.get(i).getId(), i);
+            comparador = comparador.thenComparingInt(c -> ordem.get(c.getParticipante().getId()));
+        }
+        linhas.sort(comparador.thenComparing(c -> c.getParticipante().getId()));
         Map<Long, Integer> posicoesAnteriores = new HashMap<>();
         if (anterior != null) anterior.getTabela().forEach(c ->
                 posicoesAnteriores.put(c.getParticipante().getId(), c.getPosicaoAtual()));

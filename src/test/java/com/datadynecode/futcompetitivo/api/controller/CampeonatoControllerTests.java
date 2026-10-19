@@ -80,6 +80,21 @@ class CampeonatoControllerTests {
     }
 
     @Test
+    void gruposPermitemCorteImparEExibemClassificacaoSeparada() throws Exception {
+        mvc.perform(post("/campeonatos/1/iniciar").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"formato\":\"GRUPOS\",\"quantidadeClassificados\":5}"))
+                .andExpect(status().isOk());
+        verify(service).iniciar(1L, new IniciarCampeonatoRequest(
+                com.datadynecode.futcompetitivo.api.entity.TipoFormato.GRUPOS, null, null, null, 5));
+        when(service.grupos(1L)).thenReturn(List.of(new GrupoResponse(2L, "Grupo A", List.of(), List.of())));
+        mvc.perform(get("/campeonatos/1/grupos"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].nome").value("Grupo A"));
+        when(service.classificacaoGrupo(1L, 2L)).thenReturn(new ClassificacaoResponse(1, List.of()));
+        mvc.perform(get("/campeonatos/1/grupos/2/classificacao"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.rodada").value(1));
+    }
+
+    @Test
     void cadastroRetorna201ELocation() throws Exception {
         when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, new OrganizacaoResponse(1L, "Liga", true), 2026,
                 CampeonatoStatus.CRIADO, List.of(), List.of(), List.of()));
