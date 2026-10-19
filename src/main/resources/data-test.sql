@@ -48,6 +48,6 @@ SELECT 7, j.id, e.id, true FROM jogador j CROSS JOIN equipe e
 WHERE j.nome = 'Mateus' AND e.nome = 'Arsenal';
 
 -- Alinha o primeiro bloco de 50 IDs acima dos registros iniciais.
-ALTER SEQUENCE jogador_seq RESTART WITH 57;
+ALTER SEQUENCE jogador_seq RESTART WITH 60;
 ALTER SEQUENCE equipe_seq RESTART WITH 58;
 ALTER SEQUENCE participante_seq RESTART WITH 57;

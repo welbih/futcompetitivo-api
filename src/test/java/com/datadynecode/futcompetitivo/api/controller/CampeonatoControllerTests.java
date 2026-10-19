@@ -65,6 +65,21 @@ class CampeonatoControllerTests {
     }
 
     @Test
+    void formatoMistoRecebeQuantidadeDeClassificadosEValidaMinimo() throws Exception {
+        mvc.perform(post("/campeonatos/1/iniciar").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"formato\":\"MISTA\",\"turnoEreturno\":true,\"quantidadeClassificados\":4}"))
+                .andExpect(status().isOk());
+        verify(service).iniciar(1L, new IniciarCampeonatoRequest(
+                com.datadynecode.futcompetitivo.api.entity.TipoFormato.MISTA, true, null, null, 4));
+        clearInvocations(service);
+        mvc.perform(post("/campeonatos/1/iniciar").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"formato\":\"MISTA\",\"quantidadeClassificados\":3}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.erros.quantidadeClassificados").value("O mata-mata deve ter no mínimo 4 classificados."));
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void cadastroRetorna201ELocation() throws Exception {
         when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, new OrganizacaoResponse(1L, "Liga", true), 2026,
                 CampeonatoStatus.CRIADO, List.of(), List.of(), List.of()));

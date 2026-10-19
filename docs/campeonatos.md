@@ -159,7 +159,50 @@ somente se esse confronto ainda não tiver resultado; caso contrário, a altera�
 é rejeitada para preservar os jogos posteriores. A final pode ser corrigida,
 atualizando o campeão, sem reabrir o campeonato.
 
-`MISTA` e os confrontos melhor de três/cinco continuam indisponíveis.
+### Formato misto: liga e eliminatório
+
+Inicie em `POST /campeonatos/{id}/iniciar`:
+
+```json
+{
+  "formato": "MISTA",
+  "turnoEreturno": false,
+  "quantidadeClassificados": 4
+}
+```
+
+O campeonato deve ter pelo menos 4 participantes e o corte deve estar entre 4
+e o total de participantes, inclusive. `quantidadeClassificados` é obrigatório
+para o formato misto. A primeira fase é uma liga completa, em turno único ou
+turno e returno, usando a classificação e os critérios de desempate existentes.
+A configuração fica disponível em `fases[0].quantidadeClassificados`.
+
+Ao finalizar a última rodada da liga, a API gera automaticamente a fase
+eliminatória (`ordem: 2`, `tipo: ELIMINATORIA`) com os melhores classificados.
+O campeonato permanece em andamento. O envio parcial de resultados sem finalizar
+continua aguardando a finalização explícita da última rodada para fazer a transição.
+
+A chave usa o posicionamento da liga: em chaves completas, 1º contra último,
+2º contra penúltimo, distribuídos para os dois primeiros só poderem se enfrentar
+na final. Quando há folgas, os melhores colocados avançam diretamente na primeira
+etapa. Qualquer quantidade de classificados a partir de 4 é aceita. Os nomes das
+etapas e as origens dos confrontos seguem o contrato do eliminatório em jogo único.
+
+As rodadas são numeradas dentro de cada fase; use seus IDs nos endpoints.
+`GET /campeonatos/{id}` retorna as duas fases após a transição. A tabela e os
+snapshots da liga são preservados durante o mata-mata; os jogos eliminatórios não
+somam pontos à liga. `GET /campeonatos/{id}/classificacao` continua retornando
+a classificação da liga e `/vencedor` retorna o campeão após a final eliminatória.
+
+Uma correção de placar da liga, antes de haver resultados no mata-mata, recalcula
+a classificação e atualiza os classificados e as posições na chave. Após haver
+resultados eliminatórios, correções na liga são rejeitadas para preservar as
+partidas posteriores. As correções do mata-mata seguem as regras do eliminatório.
+
+A migração `V4` adiciona a configuração de classificados sem modificar os scripts
+já aplicados nem apagar dados de campeonatos existentes.
+
+Os confrontos melhor de três/cinco continuam indisponíveis.
 
 ### Registrar resultado
 

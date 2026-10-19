@@ -34,11 +34,12 @@ public class CampeonatoMapper {
                 fase.getConfrontos().subList(inicio, inicio + quantidade)
                         .forEach(c -> confrontos.add(toResponse(c, etapa)));
             }
-            return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos);
+            return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos,
+                    fase.getQuantidadeClassificados());
         }
         return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(),
                 fase.getRodadas().stream().map(this::toResponse).toList(),
-                fase.getConfrontos().stream().map(this::toResponse).toList());
+                fase.getConfrontos().stream().map(this::toResponse).toList(), fase.getQuantidadeClassificados());
     }
 
     public RodadaResponse toResponse(Rodada rodada) {

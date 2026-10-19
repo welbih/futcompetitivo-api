@@ -83,17 +83,18 @@ public class CampeonatoService {
             boolean finalizarAutomaticamente) {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getStatus() != CampeonatoStatus.CRIADO, "Campeonato ainda não iniciado.");
-        List<Rodada> rodadas = campeonato.getFases().stream().flatMap(f -> f.getRodadas().stream())
-                .sorted(Comparator.comparing(Rodada::getNumero)).toList();
+        List<Rodada> rodadas = rodadas(campeonato);
         Rodada rodada = rodadas.stream().filter(r -> r.getPartidas().stream()
                 .anyMatch(p -> p.getId().equals(partidaId))).findFirst()
                 .orElseThrow(() -> naoEncontrado("Partida", partidaId));
         Partida partida = rodada.getPartidas().stream().filter(p -> p.getId().equals(partidaId)).findFirst().orElseThrow();
         exigir(partida.isFinalizada() || rodada.getStatus() == RodadaStatus.EM_ANDAMENTO,
                 "Só é possível adicionar resultado em uma rodada em andamento.");
+        Fase fase = faseDaRodada(campeonato, rodada);
+        rodadas = fase.getRodadas();
+        exigirFasesAnterioresFinalizadas(campeonato, fase);
         exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
-        Fase fase = campeonato.getFases().getFirst();
         validarResultado(request, fase.getTipo());
         if (fase.getTipo() == TipoFase.ELIMINATORIA && partida.isFinalizada()) {
             Resultado anterior = partida.getResultado();
@@ -119,6 +120,11 @@ public class CampeonatoService {
             }
             return mapper.toResponse(campeonato);
         }
+        if (fase.getQuantidadeClassificados() != null && campeonato.getFases().size() > 1) {
+            exigir(campeonato.getFases().getLast().getRodadas().stream()
+                            .flatMap(r -> r.getPartidas().stream()).noneMatch(Partida::isFinalizada),
+                    "Não é possível corrigir a liga após registrar resultados no mata-mata.");
+        }
         partida.setResultado(new Resultado(Boolean.TRUE.equals(request.golDeOuro()), request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
         partida.setStatus(StatusPartida.FINALIZADA);
@@ -141,7 +147,7 @@ public class CampeonatoService {
         exigir(new HashSet<>(ids).size() == ids.size(), "A lista de resultados não pode conter partidas duplicadas.");
         exigir(new HashSet<>(rodada.getPartidas().stream().map(Partida::getId).toList()).containsAll(ids),
                 "Informe apenas partidas pertencentes à rodada.");
-        resultados.forEach(r -> validarResultado(r.resultado(), campeonato.getFases().getFirst().getTipo()));
+        resultados.forEach(r -> validarResultado(r.resultado(), faseDaRodada(campeonato, rodada).getTipo()));
         resultados.forEach(r -> registrarResultado(id, r.partidaId(), r.resultado(), false));
         return mapper.toResponse(campeonato);
     }
@@ -152,6 +158,9 @@ public class CampeonatoService {
         List<Rodada> rodadas = rodadas(campeonato);
         Rodada rodada = rodadas.stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
                 .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
+        Fase fase = faseDaRodada(campeonato, rodada);
+        rodadas = fase.getRodadas();
+        exigirFasesAnterioresFinalizadas(campeonato, fase);
         exigir(rodada.getStatus() == RodadaStatus.EM_ANDAMENTO, "Rodada deve estar em andamento.");
         exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
@@ -162,13 +171,23 @@ public class CampeonatoService {
     }
 
     private List<Rodada> rodadas(Campeonato campeonato) {
-        return campeonato.getFases().stream().flatMap(f -> f.getRodadas().stream())
-                .sorted(Comparator.comparing(Rodada::getNumero)).toList();
+        return campeonato.getFases().stream().sorted(Comparator.comparing(Fase::getOrdem))
+                .flatMap(f -> f.getRodadas().stream().sorted(Comparator.comparing(Rodada::getNumero))).toList();
+    }
+
+    private Fase faseDaRodada(Campeonato campeonato, Rodada rodada) {
+        return campeonato.getFases().stream().filter(f -> f.getRodadas().contains(rodada)).findFirst().orElseThrow();
+    }
+
+    private void exigirFasesAnterioresFinalizadas(Campeonato campeonato, Fase fase) {
+        exigir(campeonato.getFases().stream().filter(f -> f.getOrdem() < fase.getOrdem())
+                .flatMap(f -> f.getRodadas().stream()).allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA),
+                "Fase anterior ainda não finalizada.");
     }
 
     private void finalizar(Campeonato campeonato, List<Rodada> rodadas, Rodada rodada) {
         rodada.setStatus(RodadaStatus.FINALIZADA);
-        Fase fase = campeonato.getFases().getFirst();
+        Fase fase = faseDaRodada(campeonato, rodada);
         if (fase.getTipo() == TipoFase.ELIMINATORIA) {
             rodadas.stream().filter(r -> r.getNumero() == rodada.getNumero() + 1).findFirst()
                     .ifPresent(proxima -> eliminatorio.prepararRodada(fase, proxima));
@@ -179,8 +198,18 @@ public class CampeonatoService {
         recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
         boolean todasGeradas = fase.getTipo() != TipoFase.SWISS
                 || fase.getRodadas().size() == fase.getTotalRodadas();
-        if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
-            campeonato.setStatus(CampeonatoStatus.FINALIZADO);
+        if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA)) {
+            if (fase.getQuantidadeClassificados() != null) {
+                List<Participante> classificados = ultima(campeonato).getTabela().stream()
+                        .limit(fase.getQuantidadeClassificados()).map(ClassificacaoParticipante::getParticipante).toList();
+                if (campeonato.getFases().size() == 1) {
+                    Fase mataMata = new Fase();
+                    mataMata.setOrdem(2);
+                    eliminatorio.gerar(mataMata, classificados);
+                    campeonato.getFases().add(mataMata);
+                } else eliminatorio.atualizarParticipantes(campeonato.getFases().getLast(), classificados);
+            } else campeonato.setStatus(CampeonatoStatus.FINALIZADO);
+        }
         rodadas.stream().filter(r -> r.getNumero() > rodada.getNumero()
                         && r.getStatus() == RodadaStatus.PENDENTE)
                 .findFirst().filter(proxima -> rodadas.stream()
@@ -238,7 +267,7 @@ public class CampeonatoService {
     public ParticipanteResponse vencedor(Long id) {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getStatus() == CampeonatoStatus.FINALIZADO, "Campeonato ainda não finalizado.");
-        Fase fase = campeonato.getFases().getFirst();
+        Fase fase = campeonato.getFases().getLast();
         exigir(fase.getTipo() == TipoFase.ELIMINATORIA, "Campeonato não utiliza formato eliminatório.");
         return mapper.toResponse(campeonato).participantes().stream()
                 .filter(p -> p.id().equals(eliminatorio.campeao(fase).getId())).findFirst().orElseThrow();

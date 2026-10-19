@@ -314,7 +314,7 @@ class CampeonatoServiceTests {
     }
 
     @Test
-    void formatosIncompletosDaOrigemNaoIniciamCampeonato() {
+    void formatoMistoExigeConfiguracaoDeClassificados() {
         var criado = service.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Copa", true)).id(), 2026, selecoes(criarParticipantes(4))));
         for (TipoFormato formato : List.of(TipoFormato.MISTA)) {
             assertThrows(RegraCampeonatoException.class, () -> service.iniciar(criado.id(),

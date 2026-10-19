@@ -22,6 +22,7 @@ public class Fase {
     private boolean turnoEreturno;
     private Integer jogosPorParticipante;
     private Integer totalRodadas;
+    private Integer quantidadeClassificados;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fase_id")

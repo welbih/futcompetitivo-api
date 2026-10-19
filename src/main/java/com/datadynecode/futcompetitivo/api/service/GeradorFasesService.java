@@ -45,8 +45,18 @@ public class GeradorFasesService {
                 exigir(!Boolean.TRUE.equals(request.turnoEreturno()), "Eliminatório permite apenas jogo único.");
                 eliminatorio.gerar(fase, participantes);
             }
-            case MISTA -> throw new RegraCampeonatoException(
-                    "Formato ainda não implementado no projeto de origem: " + request.formato());
+            case MISTA -> {
+                exigir(participantes.size() >= 4, "O formato misto deve ter no mínimo 4 participantes.");
+                Integer classificados = request.quantidadeClassificados();
+                exigir(classificados != null && classificados >= 4,
+                        "O mata-mata deve ter no mínimo 4 classificados.");
+                exigir(classificados <= participantes.size(),
+                        "A quantidade de classificados não pode exceder o total de participantes.");
+                fase.setTipo(TipoFase.LIGA);
+                fase.setQuantidadeClassificados(classificados);
+                fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
+                gerarLiga(fase, participantes);
+            }
         }
         if (!fase.getRodadas().isEmpty())
             fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
