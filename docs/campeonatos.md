@@ -104,10 +104,62 @@ encontro entre os participantes, inclusive quando já houve várias revanches.
 { "formato": "SWISS", "totalRodadas": 3 }
 ```
 
-`ELIMINATORIO` e `MISTA` ainda não possuem geração completa no projeto de origem.
-Por isso, iniciar esses formatos retorna 400 e mantém o campeonato em `CRIADO`.
-Os modelos de confronto e os serviços de jogo único/ida e volta foram adaptados,
-mas a geração das chaves e os formatos melhor de três/cinco continuam indisponíveis.
+### Eliminatório em jogo único
+
+Inicie com `POST /campeonatos/{id}/iniciar`:
+
+```json
+{ "formato": "ELIMINATORIO" }
+```
+
+São necessários no mínimo 4 participantes. Com 4, a primeira rodada representa
+as semifinais e a segunda a final. Qualquer quantidade a partir de 4 é aceita.
+A API sorteia os participantes e ajusta a chave à próxima potência de 2,
+concedendo folgas somente na primeira etapa. Com 5, há 1 jogo preliminar e 3
+avanços diretos; com 6, 2 jogos e 2 avanços; com 7, 3 jogos e 1 avanço; com 8,
+4 jogos nas quartas. Folgas não geram partidas ou resultados fictícios.
+
+O campo `confrontos` da fase contém toda a chave, inclusive os avanços diretos
+(um participante e nenhuma partida) e as referências `origemUmId`/`origemDoisId`
+dos confrontos seguintes. As rodadas futuras ficam pendentes e recebem suas
+partidas com os vencedores ao finalizar a etapa anterior. A agenda tem exatamente
+`quantidade de participantes - 1` partidas até definir o campeão.
+
+Cada item de `fases[].rodadas` e `fases[].confrontos` expõe `etapa`, com um
+`codigo` estável para integração e um `nome` para apresentação. Por exemplo:
+
+```json
+"etapa": { "codigo": "SEMIFINAL", "nome": "Semifinal" }
+```
+
+Os nomes são definidos desde a geração da chave, inclusive nos confrontos ainda
+sem participantes: Fase preliminar, Trinta e dois avos de final, Dezesseis avos
+de final, Oitavas de final, Quartas de final, Semifinal e Final. Para chaves ainda
+maiores, usa-se "Eliminatória de N participantes". Havendo folgas, a primeira
+etapa é "Fase preliminar". Com 4 participantes, as etapas são Semifinal e Final;
+com 5 a 7, Fase preliminar, Semifinal e Final; com 8, Quartas de final,
+Semifinal e Final. Nas ligas e no Swiss, `etapa` é `null`.
+
+O envio individual mantém a finalização automática da rodada. O endpoint de
+resultados em lote permite salvar parcialmente sem finalizar, seguido do endpoint
+de finalização manual. Ao encerrar a final, o campeonato fica `FINALIZADO`.
+Consulte o campeão em `GET /campeonatos/{id}/vencedor`. O eliminatório não gera
+tabela de pontos; o progresso é apresentado pelo chaveamento.
+
+Empates exigem pênaltis com placares não negativos e diferentes:
+
+```json
+{ "golsMandante": 1, "golsVisitante": 1, "penaltisMandante": 5, "penaltisVisitante": 4 }
+```
+
+Pênaltis não são aceitos em jogos sem empate. Gol de ouro e ida e volta não são
+suportados nesse formato. Correções que mantêm o vencedor são permitidas.
+Se uma correção muda o vencedor, o adversário na próxima etapa é atualizado
+somente se esse confronto ainda não tiver resultado; caso contrário, a alteração
+é rejeitada para preservar os jogos posteriores. A final pode ser corrigida,
+atualizando o campeão, sem reabrir o campeonato.
+
+`MISTA` e os confrontos melhor de três/cinco continuam indisponíveis.
 
 ### Registrar resultado
 

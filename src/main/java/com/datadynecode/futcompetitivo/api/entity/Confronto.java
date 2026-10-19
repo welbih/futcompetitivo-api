@@ -29,6 +29,6 @@ public class Confronto {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "confronto_id")
-    @OrderColumn(name = "ordem")
+    @OrderBy("id ASC")
     private List<Partida> partidas = new ArrayList<>();
 }

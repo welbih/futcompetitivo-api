@@ -5,9 +5,12 @@ import com.datadynecode.futcompetitivo.api.entity.*;
 import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import java.util.*;
 import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class GeradorFasesService {
+    private final GeradorEliminatorioService eliminatorio;
 
     public Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request) {
         Fase fase = new Fase();
@@ -38,7 +41,11 @@ public class GeradorFasesService {
                 fase.setTipo(TipoFase.SWISS);
                 fase.setTotalRodadas(request.totalRodadas());
             }
-            case ELIMINATORIO, MISTA -> throw new RegraCampeonatoException(
+            case ELIMINATORIO -> {
+                exigir(!Boolean.TRUE.equals(request.turnoEreturno()), "Eliminatório permite apenas jogo único.");
+                eliminatorio.gerar(fase, participantes);
+            }
+            case MISTA -> throw new RegraCampeonatoException(
                     "Formato ainda não implementado no projeto de origem: " + request.formato());
         }
         if (!fase.getRodadas().isEmpty())

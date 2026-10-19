@@ -62,6 +62,9 @@ public class CampeonatoController {
         return service.finalizarRodada(id, rodadaId);
     }
 
+    @GetMapping("/{id}/vencedor")
+    public ParticipanteResponse vencedor(@PathVariable Long id) { return service.vencedor(id); }
+
     @GetMapping("/{id}/classificacao")
     public ClassificacaoResponse classificacao(@PathVariable Long id) { return service.classificacao(id); }
 
