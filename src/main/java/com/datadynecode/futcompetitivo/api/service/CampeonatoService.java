@@ -25,6 +25,7 @@ public class CampeonatoService {
     private final GeradorFasesService geradorFases;
     private final GeradorClassificacaoService geradorClassificacao;
     private final GeradorRodadaSwissService geradorSwiss;
+    private final GeradorEliminatorioService eliminatorio;
 
     public List<CampeonatoResponse> listar() {
         return repository.findAll(Sort.by("id")).stream().map(mapper::toResponse).toList();
@@ -92,10 +93,25 @@ public class CampeonatoService {
                 "Só é possível adicionar resultado em uma rodada em andamento.");
         exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
-        validarResultado(request);
+        Fase fase = campeonato.getFases().getFirst();
+        validarResultado(request, fase.getTipo());
+        if (fase.getTipo() == TipoFase.ELIMINATORIA && partida.isFinalizada()) {
+            Resultado anterior = partida.getResultado();
+            var antigo = new ResultadoRequest(anterior.getGolsMandante(), anterior.getGolsVisitante(),
+                    anterior.getPenaltisMandante(), anterior.getPenaltisVisitante(), anterior.isGolDeOuro());
+            if (!eliminatorio.vencedor(partida, antigo).getId().equals(eliminatorio.vencedor(partida, request).getId())) {
+                exigir(fase.getConfrontos().stream()
+                        .filter(c -> c.getOrigemUm() != null && c.getOrigemUm().getPartidas().contains(partida)
+                                || c.getOrigemDois() != null && c.getOrigemDois().getPartidas().contains(partida))
+                        .flatMap(c -> c.getPartidas().stream()).noneMatch(Partida::isFinalizada),
+                        "Não é possível alterar o vencedor: o confronto seguinte já possui resultado.");
+            }
+        }
         if (partida.isFinalizada()
                 && Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
-                && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())) {
+                && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())
+                && Objects.equals(partida.getResultado().getPenaltisMandante(), request.penaltisMandante())
+                && Objects.equals(partida.getResultado().getPenaltisVisitante(), request.penaltisVisitante())) {
             if (finalizarAutomaticamente && rodada.getStatus() == RodadaStatus.EM_ANDAMENTO
                     && rodada.getPartidas().stream().allMatch(Partida::isFinalizada)) {
                 finalizar(campeonato, rodadas, rodada);
@@ -125,7 +141,7 @@ public class CampeonatoService {
         exigir(new HashSet<>(ids).size() == ids.size(), "A lista de resultados não pode conter partidas duplicadas.");
         exigir(new HashSet<>(rodada.getPartidas().stream().map(Partida::getId).toList()).containsAll(ids),
                 "Informe apenas partidas pertencentes à rodada.");
-        resultados.forEach(r -> validarResultado(r.resultado()));
+        resultados.forEach(r -> validarResultado(r.resultado(), campeonato.getFases().getFirst().getTipo()));
         resultados.forEach(r -> registrarResultado(id, r.partidaId(), r.resultado(), false));
         return mapper.toResponse(campeonato);
     }
@@ -152,8 +168,15 @@ public class CampeonatoService {
 
     private void finalizar(Campeonato campeonato, List<Rodada> rodadas, Rodada rodada) {
         rodada.setStatus(RodadaStatus.FINALIZADA);
-        recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
         Fase fase = campeonato.getFases().getFirst();
+        if (fase.getTipo() == TipoFase.ELIMINATORIA) {
+            rodadas.stream().filter(r -> r.getNumero() == rodada.getNumero() + 1).findFirst()
+                    .ifPresent(proxima -> eliminatorio.prepararRodada(fase, proxima));
+            if (rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
+                campeonato.setStatus(CampeonatoStatus.FINALIZADO);
+            return;
+        }
+        recalcularClassificacoes(campeonato, rodadas, rodada.getNumero());
         boolean todasGeradas = fase.getTipo() != TipoFase.SWISS
                 || fase.getRodadas().size() == fase.getTotalRodadas();
         if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
@@ -212,10 +235,29 @@ public class CampeonatoService {
                 && participante.getEquipe().isAtivo(), "Participante, jogador e equipe devem estar ativos.");
     }
 
-    private void validarResultado(ResultadoRequest request) {
+    public ParticipanteResponse vencedor(Long id) {
+        Campeonato campeonato = buscarEntidade(id);
+        exigir(campeonato.getStatus() == CampeonatoStatus.FINALIZADO, "Campeonato ainda não finalizado.");
+        Fase fase = campeonato.getFases().getFirst();
+        exigir(fase.getTipo() == TipoFase.ELIMINATORIA, "Campeonato não utiliza formato eliminatório.");
+        return mapper.toResponse(campeonato).participantes().stream()
+                .filter(p -> p.id().equals(eliminatorio.campeao(fase).getId())).findFirst().orElseThrow();
+    }
+
+    private void validarResultado(ResultadoRequest request, TipoFase tipo) {
         exigir(request.golsMandante() != null && request.golsVisitante() != null
                 && request.golsMandante() >= 0 && request.golsVisitante() >= 0, "Gols devem ser não negativos.");
         boolean temPenaltis = request.penaltisMandante() != null || request.penaltisVisitante() != null;
+        if (tipo == TipoFase.ELIMINATORIA) {
+            exigir(!Boolean.TRUE.equals(request.golDeOuro()), "Gol de ouro não é utilizado no eliminatório.");
+            if (request.golsMandante().equals(request.golsVisitante())) {
+                exigir(request.penaltisMandante() != null && request.penaltisVisitante() != null
+                                && request.penaltisMandante() >= 0 && request.penaltisVisitante() >= 0
+                                && !request.penaltisMandante().equals(request.penaltisVisitante()),
+                        "Partida empatada exige pênaltis válidos e um vencedor.");
+            } else exigir(!temPenaltis, "Pênaltis só são permitidos em partidas empatadas.");
+            return;
+        }
         exigir(!temPenaltis, "Pênaltis não são utilizados nas fases de liga ou Swiss.");
         exigir(!Boolean.TRUE.equals(request.golDeOuro()), "Gol de ouro não é utilizado nas fases de liga ou Swiss.");
     }

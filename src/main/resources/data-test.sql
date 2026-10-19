@@ -5,6 +5,9 @@ INSERT INTO jogador (id, nome, apelido, ativo) VALUES (4, 'Caliton', NULL, true)
 INSERT INTO jogador (id, nome, apelido, ativo) VALUES (5, 'Graciel', NULL, true);
 INSERT INTO jogador (id, nome, apelido, ativo) VALUES (6, 'Luciano', NULL, true);
 INSERT INTO jogador (id, nome, apelido, ativo) VALUES (7, 'Mateus', NULL, true);
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (8, 'Kauã', 'Monster', true);
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (9, 'Aomine', NULL, true);
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (10, 'Jack', NULL, true);
 
 
 INSERT INTO equipe(id, nome, logo_url, ativo) VALUES (1, 'Real Madrid', 'https://logodownload.org/wp-content/uploads/2016/03/real-madrid-logo-2-1.png', true);
