@@ -19,12 +19,8 @@ public class GeradorEliminatorioService {
         fase.setTipo(TipoFase.ELIMINATORIA);
         fase.setTotalRodadas(Integer.numberOfTrailingZeros(tamanho));
         List<Confronto> anteriores = new ArrayList<>();
-        int indice = 0;
-        int folgas = tamanho - participantes.size();
         for (int i = 0; i < tamanho / 2; i++) {
             Confronto confronto = new Confronto();
-            confronto.setParticipanteUm(participantes.get(indice++));
-            if (i >= folgas) confronto.setParticipanteDois(participantes.get(indice++));
             anteriores.add(confronto);
         }
         fase.getConfrontos().addAll(anteriores);
@@ -40,6 +36,27 @@ public class GeradorEliminatorioService {
             }
             fase.getConfrontos().addAll(proximos);
             anteriores = proximos;
+        }
+        atualizarParticipantes(fase, participantes);
+    }
+
+    public void atualizarParticipantes(Fase fase, List<Participante> classificados) {
+        int tamanho = 1 << fase.getTotalRodadas();
+        List<Integer> sementes = new ArrayList<>(List.of(1, 2));
+        for (int vagas = 4; vagas <= tamanho; vagas *= 2) {
+            List<Integer> expandidas = new ArrayList<>();
+            for (int semente : sementes) {
+                expandidas.add(semente);
+                expandidas.add(vagas + 1 - semente);
+            }
+            sementes = expandidas;
+        }
+        for (int i = 0; i < tamanho / 2; i++) {
+            Confronto confronto = fase.getConfrontos().get(i);
+            int um = sementes.get(2 * i) - 1;
+            int dois = sementes.get(2 * i + 1) - 1;
+            confronto.setParticipanteUm(um < classificados.size() ? classificados.get(um) : null);
+            confronto.setParticipanteDois(dois < classificados.size() ? classificados.get(dois) : null);
         }
         prepararRodada(fase, fase.getRodadas().getFirst());
     }

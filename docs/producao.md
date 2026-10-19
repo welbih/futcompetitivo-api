@@ -48,6 +48,7 @@ as instruções do provedor. Não versione credenciais reais.
 - `V1`: organizações, jogadores, equipes e participantes.
 - `V2`: campeonatos, inscrições, fases, rodadas, confrontos, partidas e classificações.
 - `V3`: índices dos relacionamentos e das consultas ordenadas.
+- `V4`: quantidade de classificados da fase de liga do formato misto.
 
 Cada entidade possui sua própria sequência `<tabela>_seq`, com incremento 50,
 alinhado ao `allocationSize=50` do JPA. As migrações V1 e V2 criam as sequências
