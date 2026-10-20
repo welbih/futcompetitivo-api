@@ -50,6 +50,7 @@ as instruções do provedor. Não versione credenciais reais.
 - `V3`: índices dos relacionamentos e das consultas ordenadas.
 - `V4`: quantidade de classificados da fase de liga do formato misto.
 - `V5`: grupos, participantes dos grupos e seus históricos de classificação.
+- `V6`: configuração de jogo único, ida e volta ou ida e volta com final única no eliminatório.
 
 Cada entidade possui sua própria sequência `<tabela>_seq`, com incremento 50,
 alinhado ao `allocationSize=50` do JPA. As migrações V1 e V2 criam as sequências

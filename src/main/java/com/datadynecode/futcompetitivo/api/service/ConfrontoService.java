@@ -38,8 +38,8 @@ public class ConfrontoService {
         if (confronto.getPartidas().size() != esperado
                 || confronto.getPartidas().stream().anyMatch(p -> !p.isFinalizada()))
             throw new RegraCampeonatoException("As partidas do confronto não foram finalizadas.");
-        int golsUm = 0;
-        int golsDois = 0;
+        long golsUm = 0;
+        long golsDois = 0;
         for (Partida partida : confronto.getPartidas()) {
             boolean mandanteUm = Objects.equals(partida.getMandante().getId(), um.getId());
             golsUm += mandanteUm ? partida.getResultado().getGolsMandante() : partida.getResultado().getGolsVisitante();

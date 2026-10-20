@@ -39,7 +39,7 @@ class FlywayMigrationTests {
 
     @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
-        assertEquals(5, flyway.info().applied().length);
+        assertEquals(6, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);

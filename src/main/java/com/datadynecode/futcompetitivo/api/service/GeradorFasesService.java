@@ -13,6 +13,8 @@ public class GeradorFasesService {
     private final GeradorEliminatorioService eliminatorio;
 
     public Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request) {
+        exigir(request.formatoEliminatorio() == null || request.formato() == TipoFormato.ELIMINATORIO,
+                "formatoEliminatorio é permitido apenas no formato ELIMINATORIO.");
         Fase fase = new Fase();
         fase.setOrdem(1);
         switch (request.formato()) {
@@ -42,7 +44,7 @@ public class GeradorFasesService {
                 fase.setTotalRodadas(request.totalRodadas());
             }
             case ELIMINATORIO -> {
-                exigir(!Boolean.TRUE.equals(request.turnoEreturno()), "Eliminatório permite apenas jogo único.");
+                fase.setFormatoEliminatorio(request.formatoEliminatorio());
                 eliminatorio.gerar(fase, participantes);
             }
             case MISTA -> {

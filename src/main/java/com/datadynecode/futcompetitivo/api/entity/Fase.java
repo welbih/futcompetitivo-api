@@ -23,6 +23,8 @@ public class Fase {
     private Integer jogosPorParticipante;
     private Integer totalRodadas;
     private Integer quantidadeClassificados;
+    @Enumerated(EnumType.STRING)
+    private FormatoEliminatorio formatoEliminatorio;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fase_id")

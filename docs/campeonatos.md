@@ -107,7 +107,7 @@ encontro entre os participantes, inclusive quando já houve várias revanches.
 { "formato": "SWISS", "totalRodadas": 3 }
 ```
 
-### Eliminatório em jogo único
+### Eliminatório
 
 Inicie com `POST /campeonatos/{id}/iniciar`:
 
@@ -155,12 +155,53 @@ Empates exigem pênaltis com placares não negativos e diferentes:
 { "golsMandante": 1, "golsVisitante": 1, "penaltisMandante": 5, "penaltisVisitante": 4 }
 ```
 
-Pênaltis não são aceitos em jogos sem empate. Gol de ouro e ida e volta não são
-suportados nesse formato. Correções que mantêm o vencedor são permitidas.
+No jogo único, pênaltis só são aceitos quando o placar termina empatado. Gol de
+ouro não é suportado. Correções que mantêm o vencedor do confronto são permitidas.
 Se uma correção muda o vencedor, o adversário na próxima etapa é atualizado
 somente se esse confronto ainda não tiver resultado; caso contrário, a alteração
 é rejeitada para preservar os jogos posteriores. A final pode ser corrigida,
 atualizando o campeão, sem reabrir o campeonato.
+
+#### Opções de ida e volta
+
+No mesmo endpoint de início, use `formatoEliminatorio`:
+
+```json
+{ "formato": "ELIMINATORIO", "formatoEliminatorio": "IDA_E_VOLTA" }
+```
+
+Essa opção gera dois jogos com mandos invertidos em todos os confrontos,
+inclusive a final. Para manter apenas a final em jogo único:
+
+```json
+{ "formato": "ELIMINATORIO", "formatoEliminatorio": "IDA_E_VOLTA_FINAL_UNICA" }
+```
+
+O valor `JOGO_UNICO` mantém uma partida por confronto e é o padrão quando o
+campo não é enviado. `formatoEliminatorio` é específico de `ELIMINATORIO`;
+`turnoEreturno` continua sendo a configuração da liga, sem substituir esse campo.
+A escolha é persistida e retornada em `fases[].formatoEliminatorio`.
+
+Cada etapa agrupa a ida e a volta de seus confrontos. Em `confrontos[]`, `tipo`
+indica `IDA_E_VOLTA` ou `JOGO_UNICO`, e `partidas` lista a ida antes da volta.
+Registre a ida antes da volta; o envio em lote também permite informar os dois
+placares juntos, em qualquer ordem. A etapa só finaliza quando todas as suas
+partidas têm resultado, respeitando a opção de finalização manual.
+
+O vencedor é determinado pela soma dos gols, sem critério de gol fora de casa.
+Empates na ida são permitidos e não admitem pênaltis. Na volta, pênaltis são
+obrigatórios apenas se o agregado ficar empatado, mesmo quando o placar do jogo
+de volta não é um empate. Por exemplo, ida 2 × 0 e volta 2 × 0 exigem pênaltis
+na volta. Se o agregado não empatar, pênaltis são rejeitados.
+
+Correções são verificadas pelo agregado, preservando o confronto seguinte se
+ele já tiver resultado. Se corrigir ambos os placares em uma etapa ainda aberta,
+envie-os juntos no lote para validar o estado final da correção. Os mandos das
+duas partidas seguintes são atualizados quando há mudança de vencedor permitida.
+Folgas não geram jogos fictícios. São `2 × (participantes − 1)` jogos com todas
+as etapas em ida e volta, ou um jogo a menos com a final única.
+
+A migração V6 adiciona a configuração sem alterar as versões anteriores.
 
 ### Formato misto: liga e eliminatório
 

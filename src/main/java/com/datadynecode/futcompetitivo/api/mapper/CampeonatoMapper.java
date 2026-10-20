@@ -35,12 +35,13 @@ public class CampeonatoMapper {
                         .forEach(c -> confrontos.add(toResponse(c, etapa)));
             }
             return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos,
-                    fase.getQuantidadeClassificados(), fase.getGrupos().stream().map(this::toResponse).toList());
+                    fase.getQuantidadeClassificados(), fase.getGrupos().stream().map(this::toResponse).toList(),
+                    fase.getFormatoEliminatorio() == null ? FormatoEliminatorio.JOGO_UNICO : fase.getFormatoEliminatorio());
         }
         return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(),
                 fase.getRodadas().stream().map(this::toResponse).toList(),
                 fase.getConfrontos().stream().map(this::toResponse).toList(), fase.getQuantidadeClassificados(),
-                fase.getGrupos().stream().map(this::toResponse).toList());
+                fase.getGrupos().stream().map(this::toResponse).toList(), fase.getFormatoEliminatorio());
     }
 
     public GrupoResponse toResponse(Grupo grupo) {
