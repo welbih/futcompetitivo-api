@@ -65,6 +65,9 @@ public class CampeonatoController {
     @GetMapping("/{id}/vencedor")
     public ParticipanteResponse vencedor(@PathVariable Long id) { return service.vencedor(id); }
 
+    @GetMapping("/{id}/terceiro-lugar")
+    public ParticipanteResponse terceiroLugar(@PathVariable Long id) { return service.terceiroLugar(id); }
+
     @GetMapping("/{id}/classificacao")
     public ClassificacaoResponse classificacao(@PathVariable Long id) { return service.classificacao(id); }
 

@@ -6,5 +6,5 @@ import java.util.List;
 
 public record FaseResponse(Long id, Integer ordem, TipoFase tipo,
         List<RodadaResponse> rodadas, List<ConfrontoResponse> confrontos, Integer quantidadeClassificados,
-        List<GrupoResponse> grupos, FormatoEliminatorio formatoEliminatorio) {
+        List<GrupoResponse> grupos, FormatoEliminatorio formatoEliminatorio, boolean disputaTerceiroLugar) {
 }

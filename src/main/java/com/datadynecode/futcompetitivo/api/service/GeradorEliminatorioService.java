@@ -44,6 +44,16 @@ public class GeradorEliminatorioService {
             confronto.setTipo(fase.getFormatoEliminatorio() == FormatoEliminatorio.JOGO_UNICO || finalUnica
                     ? TipoConfronto.JOGO_UNICO : TipoConfronto.IDA_E_VOLTA);
         }
+        if (fase.isDisputaTerceiroLugar()) {
+            Confronto finalConfronto = fase.getConfrontos().getLast();
+            Confronto terceiro = new Confronto();
+            terceiro.setTerceiroLugar(true);
+            terceiro.setTipo(fase.getFormatoEliminatorio() == FormatoEliminatorio.JOGO_UNICO
+                    ? TipoConfronto.JOGO_UNICO : TipoConfronto.IDA_E_VOLTA);
+            terceiro.setOrigemUm(finalConfronto.getOrigemUm());
+            terceiro.setOrigemDois(finalConfronto.getOrigemDois());
+            fase.getConfrontos().add(fase.getConfrontos().size() - 1, terceiro);
+        }
         atualizarParticipantes(fase, participantes);
     }
 
@@ -71,11 +81,17 @@ public class GeradorEliminatorioService {
     public void prepararRodada(Fase fase, Rodada rodada) {
         int quantidade = 1 << (fase.getTotalRodadas() - rodada.getNumero());
         int inicio = (1 << fase.getTotalRodadas()) - 2 * quantidade;
-        for (Confronto confronto : fase.getConfrontos().subList(inicio, inicio + quantidade)) {
+        List<Confronto> chave = fase.getConfrontos().stream().filter(c -> !c.isTerceiroLugar()).toList();
+        List<Confronto> etapa = new ArrayList<>(chave.subList(inicio, inicio + quantidade));
+        if (rodada.getNumero().equals(fase.getTotalRodadas()))
+            fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).forEach(etapa::add);
+        for (Confronto confronto : etapa) {
             if (confronto.getOrigemUm() != null)
-                confronto.setParticipanteUm(confrontos.vencedor(confronto.getOrigemUm()));
+                confronto.setParticipanteUm(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemUm())
+                        : confrontos.vencedor(confronto.getOrigemUm()));
             if (confronto.getOrigemDois() != null)
-                confronto.setParticipanteDois(confrontos.vencedor(confronto.getOrigemDois()));
+                confronto.setParticipanteDois(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemDois())
+                        : confrontos.vencedor(confronto.getOrigemDois()));
             if (confronto.getPartidas().isEmpty()) {
                 confrontos.gerarPartidas(confronto);
                 rodada.getPartidas().addAll(confronto.getPartidas());
@@ -93,6 +109,10 @@ public class GeradorEliminatorioService {
 
     public Participante campeao(Fase fase) {
         return confrontos.vencedor(fase.getConfrontos().getLast());
+    }
+
+    public Participante terceiroColocado(Fase fase) {
+        return confrontos.vencedor(fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).findFirst().orElseThrow());
     }
 
 }

@@ -12,9 +12,9 @@ public class ConfrontoService {
         if (!confronto.getPartidas().isEmpty())
             throw new RegraCampeonatoException("As partidas do confronto já foram geradas.");
         if (confronto.getOrigemUm() != null)
-            confronto.setParticipanteUm(vencedor(confronto.getOrigemUm()));
+            confronto.setParticipanteUm(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm()) : vencedor(confronto.getOrigemUm()));
         if (confronto.getOrigemDois() != null)
-            confronto.setParticipanteDois(vencedor(confronto.getOrigemDois()));
+            confronto.setParticipanteDois(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois()) : vencedor(confronto.getOrigemDois()));
         if (confronto.getParticipanteUm() == null || confronto.getParticipanteDois() == null) return;
         if (confronto.getTipo() != TipoConfronto.JOGO_UNICO && confronto.getTipo() != TipoConfronto.IDA_E_VOLTA)
             throw new RegraCampeonatoException("Formato de confronto ainda não implementado: " + confronto.getTipo());
@@ -23,11 +23,21 @@ public class ConfrontoService {
             confronto.getPartidas().add(new Partida(confronto.getParticipanteDois(), confronto.getParticipanteUm()));
     }
 
+    public Participante perdedor(Confronto confronto) {
+        Participante vencedor = vencedor(confronto);
+        if (confronto.getParticipanteUm() == null || confronto.getParticipanteDois() == null)
+            throw new RegraCampeonatoException("Confronto com folga não possui perdedor.");
+        return vencedor.getId().equals(confronto.getParticipanteUm().getId())
+                ? confronto.getParticipanteDois() : confronto.getParticipanteUm();
+    }
+
     public Participante vencedor(Confronto confronto) {
         Participante um = confronto.getParticipanteUm();
         Participante dois = confronto.getParticipanteDois();
-        if (um == null && confronto.getOrigemUm() != null) um = vencedor(confronto.getOrigemUm());
-        if (dois == null && confronto.getOrigemDois() != null) dois = vencedor(confronto.getOrigemDois());
+        if (um == null && confronto.getOrigemUm() != null)
+            um = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm()) : vencedor(confronto.getOrigemUm());
+        if (dois == null && confronto.getOrigemDois() != null)
+            dois = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois()) : vencedor(confronto.getOrigemDois());
         if (um == null) return dois;
         if (dois == null) return um;
         int esperado = switch (confronto.getTipo()) {

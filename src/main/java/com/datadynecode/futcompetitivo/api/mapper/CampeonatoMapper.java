@@ -26,22 +26,28 @@ public class CampeonatoMapper {
                     .anyMatch(c -> c.getOrigemUm() == null && c.getParticipanteDois() == null);
             var rodadas = new ArrayList<RodadaResponse>();
             var confrontos = new ArrayList<ConfrontoResponse>();
+            var chave = fase.getConfrontos().stream().filter(c -> !c.isTerceiroLugar()).toList();
             for (Rodada rodada : fase.getRodadas()) {
                 int quantidade = 1 << (fase.getTotalRodadas() - rodada.getNumero());
                 int inicio = (1 << fase.getTotalRodadas()) - 2 * quantidade;
                 EtapaResponse etapa = etapa(quantidade, preliminar && rodada.getNumero() == 1);
-                rodadas.add(toResponse(rodada, etapa));
-                fase.getConfrontos().subList(inicio, inicio + quantidade)
+                boolean disputasFinais = quantidade == 1 && fase.isDisputaTerceiroLugar();
+                rodadas.add(toResponse(rodada, disputasFinais
+                        ? new EtapaResponse("DISPUTAS_FINAIS", "Final e disputa de terceiro lugar") : etapa));
+                if (disputasFinais) fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar)
+                        .forEach(c -> confrontos.add(toResponse(c, new EtapaResponse("TERCEIRO_LUGAR", "Disputa de terceiro lugar"))));
+                chave.subList(inicio, inicio + quantidade)
                         .forEach(c -> confrontos.add(toResponse(c, etapa)));
             }
             return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos,
                     fase.getQuantidadeClassificados(), fase.getGrupos().stream().map(this::toResponse).toList(),
-                    fase.getFormatoEliminatorio() == null ? FormatoEliminatorio.JOGO_UNICO : fase.getFormatoEliminatorio());
+                    fase.getFormatoEliminatorio() == null ? FormatoEliminatorio.JOGO_UNICO : fase.getFormatoEliminatorio(),
+                    fase.isDisputaTerceiroLugar());
         }
         return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(),
                 fase.getRodadas().stream().map(this::toResponse).toList(),
                 fase.getConfrontos().stream().map(this::toResponse).toList(), fase.getQuantidadeClassificados(),
-                fase.getGrupos().stream().map(this::toResponse).toList(), fase.getFormatoEliminatorio());
+                fase.getGrupos().stream().map(this::toResponse).toList(), fase.getFormatoEliminatorio(), fase.isDisputaTerceiroLugar());
     }
 
     public GrupoResponse toResponse(Grupo grupo) {
@@ -79,7 +85,7 @@ public class CampeonatoMapper {
                 confronto.getParticipanteDois() == null ? null : confronto.getParticipanteDois().getId(),
                 confronto.getOrigemUm() == null ? null : confronto.getOrigemUm().getId(),
                 confronto.getOrigemDois() == null ? null : confronto.getOrigemDois().getId(),
-                confronto.getTipo(), confronto.getPartidas().stream().map(this::toResponse).toList(), etapa);
+                confronto.getTipo(), confronto.getPartidas().stream().map(this::toResponse).toList(), etapa, confronto.isTerceiroLugar());
     }
 
     private EtapaResponse etapa(int confrontos, boolean preliminar) {

@@ -25,6 +25,8 @@ public class Fase {
     private Integer quantidadeClassificados;
     @Enumerated(EnumType.STRING)
     private FormatoEliminatorio formatoEliminatorio;
+    @Column(nullable = false)
+    private boolean disputaTerceiroLugar;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fase_id")

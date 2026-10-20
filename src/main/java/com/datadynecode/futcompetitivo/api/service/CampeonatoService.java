@@ -202,6 +202,7 @@ public class CampeonatoService {
                 if (campeonato.getFases().size() == 1) {
                     Fase mataMata = new Fase();
                     mataMata.setOrdem(2);
+                    mataMata.setDisputaTerceiroLugar(fase.isDisputaTerceiroLugar());
                     eliminatorio.gerar(mataMata, classificados);
                     campeonato.getFases().add(mataMata);
                 } else eliminatorio.atualizarParticipantes(campeonato.getFases().getLast(), classificados);
@@ -295,6 +296,17 @@ public class CampeonatoService {
         exigir(fase.getTipo() == TipoFase.ELIMINATORIA, "Campeonato não utiliza formato eliminatório.");
         return mapper.toResponse(campeonato).participantes().stream()
                 .filter(p -> p.id().equals(eliminatorio.campeao(fase).getId())).findFirst().orElseThrow();
+    }
+
+    public ParticipanteResponse terceiroLugar(Long id) {
+        Campeonato campeonato = buscarEntidade(id);
+        exigir(campeonato.getStatus() == CampeonatoStatus.FINALIZADO, "Campeonato ainda não finalizado.");
+        Fase fase = campeonato.getFases().getLast();
+        exigir(fase.getTipo() == TipoFase.ELIMINATORIA && fase.isDisputaTerceiroLugar(),
+                "Campeonato não possui disputa de terceiro lugar.");
+        Long participanteId = eliminatorio.terceiroColocado(fase).getId();
+        return mapper.toResponse(campeonato).participantes().stream()
+                .filter(p -> p.id().equals(participanteId)).findFirst().orElseThrow();
     }
 
     private void validarResultado(ResultadoRequest request, TipoFase tipo) {

@@ -17,6 +17,11 @@ public class GeradorFasesService {
                 "formatoEliminatorio é permitido apenas no formato ELIMINATORIO.");
         Fase fase = new Fase();
         fase.setOrdem(1);
+        exigir(!Boolean.TRUE.equals(request.disputaTerceiroLugar())
+                        || request.formato() == TipoFormato.ELIMINATORIO || request.formato() == TipoFormato.MISTA
+                        || request.formato() == TipoFormato.GRUPOS,
+                "Disputa de terceiro lugar exige um formato com mata-mata.");
+        fase.setDisputaTerceiroLugar(Boolean.TRUE.equals(request.disputaTerceiroLugar()));
         switch (request.formato()) {
             case LIGA -> {
                 exigir(participantes.size() >= 3, "Liga precisa de pelo menos 3 participantes.");

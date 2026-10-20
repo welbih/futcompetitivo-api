@@ -73,3 +73,7 @@ chave. Depois de registrar resultados no mata-mata, alterações nos placares do
 grupos são rejeitadas para preservar as partidas posteriores.
 
 A migração V5 adiciona as estruturas sem alterar migrações anteriores ou apagar dados.
+
+É possível adicionar `disputaTerceiroLugar: true` ao início para disputar o
+terceiro lugar entre os perdedores das semifinais. A opção segue para a fase
+eliminatória, e o campeonato aguarda o resultado dessa disputa e da final.

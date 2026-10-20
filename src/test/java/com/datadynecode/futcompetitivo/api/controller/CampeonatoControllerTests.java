@@ -111,6 +111,18 @@ class CampeonatoControllerTests {
     }
 
     @Test
+    void recebeOpcaoDeTerceiroLugarEConsultaColocado() throws Exception {
+        mvc.perform(post("/campeonatos/1/iniciar").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"formato\":\"ELIMINATORIO\",\"formatoEliminatorio\":\"IDA_E_VOLTA_FINAL_UNICA\",\"disputaTerceiroLugar\":true}"))
+                .andExpect(status().isOk());
+        verify(service).iniciar(1L, new IniciarCampeonatoRequest(
+                com.datadynecode.futcompetitivo.api.entity.TipoFormato.ELIMINATORIO, null, null, null, null,
+                com.datadynecode.futcompetitivo.api.entity.FormatoEliminatorio.IDA_E_VOLTA_FINAL_UNICA, true));
+        mvc.perform(get("/campeonatos/1/terceiro-lugar")).andExpect(status().isOk());
+        verify(service).terceiroLugar(1L);
+    }
+
+    @Test
     void cadastroRetorna201ELocation() throws Exception {
         when(service.criar(any())).thenReturn(new CampeonatoResponse(1L, new OrganizacaoResponse(1L, "Liga", true), 2026,
                 CampeonatoStatus.CRIADO, List.of(), List.of(), List.of()));

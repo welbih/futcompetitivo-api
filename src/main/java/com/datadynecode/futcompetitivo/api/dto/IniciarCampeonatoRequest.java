@@ -12,7 +12,13 @@ public record IniciarCampeonatoRequest(
         @Positive Integer jogosPorParticipante,
         @Positive Integer totalRodadas,
         @Min(value = 4, message = "O mata-mata deve ter no mínimo 4 classificados.") Integer quantidadeClassificados,
-        FormatoEliminatorio formatoEliminatorio) {
+        FormatoEliminatorio formatoEliminatorio, Boolean disputaTerceiroLugar) {
+
+    public IniciarCampeonatoRequest(TipoFormato formato, Boolean turnoEreturno,
+            Integer jogosPorParticipante, Integer totalRodadas, Integer quantidadeClassificados,
+            FormatoEliminatorio formatoEliminatorio) {
+        this(formato, turnoEreturno, jogosPorParticipante, totalRodadas, quantidadeClassificados, formatoEliminatorio, null);
+    }
 
     public IniciarCampeonatoRequest(TipoFormato formato, Boolean turnoEreturno,
             Integer jogosPorParticipante, Integer totalRodadas, Integer quantidadeClassificados) {
