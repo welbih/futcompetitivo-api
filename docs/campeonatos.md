@@ -107,7 +107,7 @@ encontro entre os participantes, inclusive quando já houve várias revanches.
 { "formato": "SWISS", "totalRodadas": 3 }
 ```
 
-### Eliminatório em jogo único
+### Eliminatório
 
 Inicie com `POST /campeonatos/{id}/iniciar`:
 
@@ -155,12 +155,97 @@ Empates exigem pênaltis com placares não negativos e diferentes:
 { "golsMandante": 1, "golsVisitante": 1, "penaltisMandante": 5, "penaltisVisitante": 4 }
 ```
 
-Pênaltis não são aceitos em jogos sem empate. Gol de ouro e ida e volta não são
-suportados nesse formato. Correções que mantêm o vencedor são permitidas.
+No jogo único, pênaltis só são aceitos quando o placar termina empatado. Gol de
+ouro não é suportado. Correções que mantêm o vencedor do confronto são permitidas.
 Se uma correção muda o vencedor, o adversário na próxima etapa é atualizado
 somente se esse confronto ainda não tiver resultado; caso contrário, a alteração
 é rejeitada para preservar os jogos posteriores. A final pode ser corrigida,
 atualizando o campeão, sem reabrir o campeonato.
+
+#### Opções de ida e volta
+
+No mesmo endpoint de início, use `formatoEliminatorio`:
+
+```json
+{ "formato": "ELIMINATORIO", "formatoEliminatorio": "IDA_E_VOLTA" }
+```
+
+Essa opção gera dois jogos com mandos invertidos em todos os confrontos,
+inclusive a final. Para manter apenas a final em jogo único:
+
+```json
+{ "formato": "ELIMINATORIO", "formatoEliminatorio": "IDA_E_VOLTA_FINAL_UNICA" }
+```
+
+O valor `JOGO_UNICO` mantém uma partida por confronto e é o padrão quando o
+campo não é enviado. `formatoEliminatorio` é específico de `ELIMINATORIO`;
+`turnoEreturno` continua sendo a configuração da liga, sem substituir esse campo.
+A escolha é persistida e retornada em `fases[].formatoEliminatorio`.
+
+Cada etapa agrupa a ida e a volta de seus confrontos. Em `confrontos[]`, `tipo`
+indica `IDA_E_VOLTA` ou `JOGO_UNICO`, e `partidas` lista a ida antes da volta.
+Registre a ida antes da volta; o envio em lote também permite informar os dois
+placares juntos, em qualquer ordem. A etapa só finaliza quando todas as suas
+partidas têm resultado, respeitando a opção de finalização manual.
+
+O vencedor é determinado pela soma dos gols, sem critério de gol fora de casa.
+Empates na ida são permitidos e não admitem pênaltis. Na volta, pênaltis são
+obrigatórios apenas se o agregado ficar empatado, mesmo quando o placar do jogo
+de volta não é um empate. Por exemplo, ida 2 × 0 e volta 2 × 0 exigem pênaltis
+na volta. Se o agregado não empatar, pênaltis são rejeitados.
+
+Correções são verificadas pelo agregado, preservando o confronto seguinte se
+ele já tiver resultado. Se corrigir ambos os placares em uma etapa ainda aberta,
+envie-os juntos no lote para validar o estado final da correção. Os mandos das
+duas partidas seguintes são atualizados quando há mudança de vencedor permitida.
+Folgas não geram jogos fictícios. São `2 × (participantes − 1)` jogos com todas
+as etapas em ida e volta, ou um jogo a menos com a final única.
+
+A migração V6 adiciona a configuração sem alterar as versões anteriores.
+
+#### Disputa opcional de terceiro lugar
+
+Inclua `disputaTerceiroLugar: true` ao iniciar:
+
+```json
+{
+  "formato": "ELIMINATORIO",
+  "formatoEliminatorio": "IDA_E_VOLTA_FINAL_UNICA",
+  "disputaTerceiroLugar": true
+}
+```
+
+A opção é desabilitada por padrão. Também é aceita no início de `MISTA` e
+`GRUPOS`, sendo transferida para o mata-mata gerado após a fase classificatória.
+Não é aceita em campeonatos somente de liga, liga parcial ou Swiss.
+
+O confronto usa os perdedores das duas semifinais, considerando o agregado e
+os pênaltis quando aplicáveis. O modo respeita a escolha do eliminatório:
+
+| Configuração | Terceiro lugar | Final |
+| --- | --- | --- |
+| `JOGO_UNICO` | Jogo único | Jogo único |
+| `IDA_E_VOLTA` | Ida e volta | Ida e volta |
+| `IDA_E_VOLTA_FINAL_UNICA` | Ida e volta | Jogo único |
+
+`GET /campeonatos/{id}` expõe `fases[].disputaTerceiroLugar`. O confronto do
+terceiro lugar tem `terceiroLugar: true` e `etapa.codigo: TERCEIRO_LUGAR`, com
+nome "Disputa de terceiro lugar". Suas origens apontam para as semifinais e,
+nesse confronto, significam seus **perdedores**. A final mantém `etapa.codigo: FINAL`.
+
+As duas decisões compartilham a última rodada, identificada como `DISPUTAS_FINAIS`,
+"Final e disputa de terceiro lugar". Os resultados podem ser registrados em
+qualquer ordem, respeitando ida antes da volta de cada confronto. A rodada e o
+campeonato só são finalizados depois de todas as partidas de ambas as decisões.
+O envio parcial sem finalizar e a finalização manual também são suportados.
+
+Após o campeonato finalizar, `GET /campeonatos/{id}/terceiro-lugar` retorna o
+participante vencedor dessa disputa. `/vencedor` continua retornando o campeão.
+Uma correção no terceiro lugar não altera o campeão. Trocar o vencedor de uma
+semifinal é rejeitado se a final **ou** o terceiro lugar já tiver resultado.
+
+A disputa acrescenta 1 partida em jogo único ou 2 em ida e volta. A migração V7
+preserva campeonatos existentes com a opção desabilitada.
 
 ### Formato misto: liga e eliminatório
 

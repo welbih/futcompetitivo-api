@@ -26,6 +26,8 @@ public class Confronto {
     private Confronto origemDois;
     @Enumerated(EnumType.STRING)
     private TipoConfronto tipo = TipoConfronto.JOGO_UNICO;
+    @Column(nullable = false)
+    private boolean terceiroLugar;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "confronto_id")

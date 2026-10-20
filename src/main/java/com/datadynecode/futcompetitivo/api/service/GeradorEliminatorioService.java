@@ -1,7 +1,6 @@
 package com.datadynecode.futcompetitivo.api.service;
 
 import com.datadynecode.futcompetitivo.api.entity.*;
-import com.datadynecode.futcompetitivo.api.dto.ResultadoRequest;
 import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +16,8 @@ public class GeradorEliminatorioService {
             throw new RegraCampeonatoException("Eliminatório precisa de pelo menos 4 participantes.");
         int tamanho = Integer.highestOneBit(participantes.size() - 1) << 1;
         fase.setTipo(TipoFase.ELIMINATORIA);
+        if (fase.getFormatoEliminatorio() == null) fase.setFormatoEliminatorio(FormatoEliminatorio.JOGO_UNICO);
+        fase.setTurnoEreturno(fase.getFormatoEliminatorio() != FormatoEliminatorio.JOGO_UNICO);
         fase.setTotalRodadas(Integer.numberOfTrailingZeros(tamanho));
         List<Confronto> anteriores = new ArrayList<>();
         for (int i = 0; i < tamanho / 2; i++) {
@@ -36,6 +37,22 @@ public class GeradorEliminatorioService {
             }
             fase.getConfrontos().addAll(proximos);
             anteriores = proximos;
+        }
+        for (Confronto confronto : fase.getConfrontos()) {
+            boolean finalUnica = confronto == fase.getConfrontos().getLast()
+                    && fase.getFormatoEliminatorio() == FormatoEliminatorio.IDA_E_VOLTA_FINAL_UNICA;
+            confronto.setTipo(fase.getFormatoEliminatorio() == FormatoEliminatorio.JOGO_UNICO || finalUnica
+                    ? TipoConfronto.JOGO_UNICO : TipoConfronto.IDA_E_VOLTA);
+        }
+        if (fase.isDisputaTerceiroLugar()) {
+            Confronto finalConfronto = fase.getConfrontos().getLast();
+            Confronto terceiro = new Confronto();
+            terceiro.setTerceiroLugar(true);
+            terceiro.setTipo(fase.getFormatoEliminatorio() == FormatoEliminatorio.JOGO_UNICO
+                    ? TipoConfronto.JOGO_UNICO : TipoConfronto.IDA_E_VOLTA);
+            terceiro.setOrigemUm(finalConfronto.getOrigemUm());
+            terceiro.setOrigemDois(finalConfronto.getOrigemDois());
+            fase.getConfrontos().add(fase.getConfrontos().size() - 1, terceiro);
         }
         atualizarParticipantes(fase, participantes);
     }
@@ -64,32 +81,38 @@ public class GeradorEliminatorioService {
     public void prepararRodada(Fase fase, Rodada rodada) {
         int quantidade = 1 << (fase.getTotalRodadas() - rodada.getNumero());
         int inicio = (1 << fase.getTotalRodadas()) - 2 * quantidade;
-        for (Confronto confronto : fase.getConfrontos().subList(inicio, inicio + quantidade)) {
+        List<Confronto> chave = fase.getConfrontos().stream().filter(c -> !c.isTerceiroLugar()).toList();
+        List<Confronto> etapa = new ArrayList<>(chave.subList(inicio, inicio + quantidade));
+        if (rodada.getNumero().equals(fase.getTotalRodadas()))
+            fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).forEach(etapa::add);
+        for (Confronto confronto : etapa) {
             if (confronto.getOrigemUm() != null)
-                confronto.setParticipanteUm(confrontos.vencedor(confronto.getOrigemUm()));
+                confronto.setParticipanteUm(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemUm())
+                        : confrontos.vencedor(confronto.getOrigemUm()));
             if (confronto.getOrigemDois() != null)
-                confronto.setParticipanteDois(confrontos.vencedor(confronto.getOrigemDois()));
+                confronto.setParticipanteDois(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemDois())
+                        : confrontos.vencedor(confronto.getOrigemDois()));
             if (confronto.getPartidas().isEmpty()) {
                 confrontos.gerarPartidas(confronto);
                 rodada.getPartidas().addAll(confronto.getPartidas());
             } else {
-                Partida partida = confronto.getPartidas().getFirst();
-                partida.setMandante(confronto.getParticipanteUm());
-                partida.setVisitante(confronto.getParticipanteDois());
+                for (int i = 0; i < confronto.getPartidas().size(); i++) {
+                    Partida partida = confronto.getPartidas().get(i);
+                    partida.setMandante(i == 0 ? confronto.getParticipanteUm() : confronto.getParticipanteDois());
+                    partida.setVisitante(i == 0 ? confronto.getParticipanteDois() : confronto.getParticipanteUm());
+                }
             }
         }
         if (rodada.getStatus() == RodadaStatus.PENDENTE)
             rodada.setStatus(RodadaStatus.EM_ANDAMENTO);
     }
 
-    public Participante vencedor(Partida partida, ResultadoRequest resultado) {
-        if (!resultado.golsMandante().equals(resultado.golsVisitante()))
-            return resultado.golsMandante() > resultado.golsVisitante() ? partida.getMandante() : partida.getVisitante();
-        return resultado.penaltisMandante() > resultado.penaltisVisitante() ? partida.getMandante() : partida.getVisitante();
-    }
-
     public Participante campeao(Fase fase) {
         return confrontos.vencedor(fase.getConfrontos().getLast());
+    }
+
+    public Participante terceiroColocado(Fase fase) {
+        return confrontos.vencedor(fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).findFirst().orElseThrow());
     }
 
 }
