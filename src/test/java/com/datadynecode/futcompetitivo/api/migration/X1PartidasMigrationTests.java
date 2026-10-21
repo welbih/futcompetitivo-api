@@ -2,20 +2,24 @@ package com.datadynecode.futcompetitivo.api.migration;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.sql.SQLException;
-import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import static org.junit.jupiter.api.Assertions.*;
 
+@Testcontainers
 class X1PartidasMigrationTests {
+    @Container
+    static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
+
     @Test
     void migraDadosDaV8SemColidirIdsOuAlterarPartidasExistentes() throws Exception {
-        String url = "jdbc:h2:mem:x1_upgrade_" + UUID.randomUUID()
-                + ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
         try (var dataSource = new HikariDataSource()) {
-            dataSource.setJdbcUrl(url);
-            dataSource.setUsername("sa");
-            dataSource.setPassword("");
+            dataSource.setJdbcUrl(POSTGRES.getJdbcUrl());
+            dataSource.setUsername(POSTGRES.getUsername());
+            dataSource.setPassword(POSTGRES.getPassword());
             Flyway.configure().dataSource(dataSource).locations("classpath:db/migration/postgresql")
                     .target("8").load().migrate();
             try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {

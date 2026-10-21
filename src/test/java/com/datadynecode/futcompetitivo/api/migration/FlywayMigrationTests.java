@@ -4,6 +4,7 @@ import com.datadynecode.futcompetitivo.api.dto.*;
 import com.datadynecode.futcompetitivo.api.entity.CampeonatoStatus;
 import com.datadynecode.futcompetitivo.api.entity.TipoFormato;
 import com.datadynecode.futcompetitivo.api.service.*;
+import com.datadynecode.futcompetitivo.api.suporte.PostgresTestConfiguration;
 import jakarta.persistence.EntityManager;
 
 import java.util.ArrayList;
@@ -12,22 +13,15 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// Smoke test em H2 no modo PostgreSQL; nao substitui validacao em PostgreSQL real.
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:flyway_migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.flyway.enabled=true",
-        "spring.flyway.locations=classpath:db/migration/postgresql",
-        "spring.jpa.hibernate.ddl-auto=validate",
-        "spring.jpa.defer-datasource-initialization=false",
-        "spring.jpa.show-sql=false",
-        "spring.sql.init.mode=never"
-})
-@ActiveProfiles("test")
+@SpringBootTest
+@Import(PostgresTestConfiguration.class)
+@ActiveProfiles("test-postgres")
 class FlywayMigrationTests {
     @Autowired private Flyway flyway;
     @Autowired private CampeonatoService campeonatos;
