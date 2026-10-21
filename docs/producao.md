@@ -68,8 +68,9 @@ Se o banco já tiver tabelas criadas manualmente, faça a conciliação do schem
 antes de adotar o Flyway; o baseline automático não está habilitado.
 No profile `test`, o Flyway fica desabilitado, mantendo o H2 criado pelo Hibernate.
 Os dados locais usam IDs explícitos e ajustam as sequências após os inserts.
-O teste de migrações executa os mesmos scripts em H2 no modo PostgreSQL e valida
-o schema com o JPA. Ele não substitui a validação em um PostgreSQL real.
+Os testes de migrações executam os scripts em PostgreSQL real com Testcontainers
+e validam o schema com o JPA. O banco de testes é criado e removido automaticamente;
+consulte [Testcontainers](testcontainers.md) para executar a suíte com Docker.
 
 ## Comportamento
 

@@ -35,8 +35,12 @@ Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as 
 
 Mantenha os testes em `src/test/java/com/datadynecode/futcompetitivo/api`, espelhando os pacotes das classes testadas.
 
-Com JDK 25 configurado, execute:
+Com JDK 25 configurado e Docker Desktop em execução (containers Linux), execute:
 
 ```powershell
 .\mvnw.cmd test
 ```
+
+Os testes de migração usam PostgreSQL real com Testcontainers, que gerencia
+automaticamente os bancos temporários. Os demais testes continuam em H2.
+Veja [Testcontainers](docs/testcontainers.md) para detalhes.

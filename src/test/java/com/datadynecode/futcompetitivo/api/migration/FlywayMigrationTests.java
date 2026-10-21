@@ -4,6 +4,7 @@ import com.datadynecode.futcompetitivo.api.dto.*;
 import com.datadynecode.futcompetitivo.api.entity.CampeonatoStatus;
 import com.datadynecode.futcompetitivo.api.entity.TipoFormato;
 import com.datadynecode.futcompetitivo.api.service.*;
+import com.datadynecode.futcompetitivo.api.suporte.PostgresTestConfiguration;
 import jakarta.persistence.EntityManager;
 
 import java.util.ArrayList;
@@ -12,22 +13,15 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// Smoke test em H2 no modo PostgreSQL; nao substitui validacao em PostgreSQL real.
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:flyway_migrations;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-        "spring.flyway.enabled=true",
-        "spring.flyway.locations=classpath:db/migration/postgresql",
-        "spring.jpa.hibernate.ddl-auto=validate",
-        "spring.jpa.defer-datasource-initialization=false",
-        "spring.jpa.show-sql=false",
-        "spring.sql.init.mode=never"
-})
-@ActiveProfiles("test")
+@SpringBootTest
+@Import(PostgresTestConfiguration.class)
+@ActiveProfiles("test-postgres")
 class FlywayMigrationTests {
     @Autowired private Flyway flyway;
     @Autowired private CampeonatoService campeonatos;
@@ -36,10 +30,33 @@ class FlywayMigrationTests {
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
     @Autowired private EntityManager entityManager;
+    @Autowired private ConfrontoPessoalService confrontosPessoais;
+
+    @Test
+    @Transactional
+    void schemaMigradoSuportaConfrontoPessoalSemCampeonato() {
+        var um = jogadores.criar(new JogadorRequest("Um", null));
+        var dois = jogadores.criar(new JogadorRequest("Dois", null));
+        var equipe = equipes.criar(new EquipeRequest("Equipe X1", "https://example.com/logo.png"));
+        var confronto = confrontosPessoais.criar(new ConfrontoPessoalRequest(
+                new ParticipanteRequest(um.id(), equipe.id()), new ParticipanteRequest(dois.id(), equipe.id()),
+                com.datadynecode.futcompetitivo.api.entity.TipoSeriePessoal.MELHOR_DE_TRES, true));
+        confrontosPessoais.registrarResultado(confronto.id(), confronto.partidas().get(0).id(),
+                new ResultadoRequest(2, 0, null, null, false));
+        confrontosPessoais.registrarResultado(confronto.id(), confronto.partidas().get(1).id(),
+                new ResultadoRequest(0, 1, null, null, false));
+        entityManager.flush();
+        entityManager.clear();
+        var salvo = confrontosPessoais.buscar(confronto.id());
+        assertEquals(um.id(), salvo.vencedor().jogador().id());
+        assertEquals(com.datadynecode.futcompetitivo.api.entity.StatusPartida.CANCELADA,
+                salvo.partidas().getLast().status());
+        assertNull(salvo.partidas().getLast().resultado());
+    }
 
     @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
-        assertEquals(7, flyway.info().applied().length);
+        assertEquals(9, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);

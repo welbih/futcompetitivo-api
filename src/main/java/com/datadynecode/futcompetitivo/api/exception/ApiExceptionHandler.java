@@ -11,6 +11,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(RegraConfrontoPessoalException.class)
+    public ProblemDetail tratarRegraConfrontoPessoal(RegraConfrontoPessoalException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
     @ExceptionHandler(RegraCampeonatoException.class)
     public ProblemDetail tratarRegraCampeonato(RegraCampeonatoException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
