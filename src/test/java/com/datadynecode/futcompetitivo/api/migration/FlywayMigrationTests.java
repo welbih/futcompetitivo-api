@@ -36,10 +36,33 @@ class FlywayMigrationTests {
     @Autowired private EquipeService equipes;
     @Autowired private ParticipanteService participantes;
     @Autowired private EntityManager entityManager;
+    @Autowired private ConfrontoPessoalService confrontosPessoais;
+
+    @Test
+    @Transactional
+    void schemaMigradoSuportaConfrontoPessoalSemCampeonato() {
+        var um = jogadores.criar(new JogadorRequest("Um", null));
+        var dois = jogadores.criar(new JogadorRequest("Dois", null));
+        var equipe = equipes.criar(new EquipeRequest("Equipe X1", "https://example.com/logo.png"));
+        var confronto = confrontosPessoais.criar(new ConfrontoPessoalRequest(
+                new ParticipanteRequest(um.id(), equipe.id()), new ParticipanteRequest(dois.id(), equipe.id()),
+                com.datadynecode.futcompetitivo.api.entity.TipoSeriePessoal.MELHOR_DE_TRES, true));
+        confrontosPessoais.registrarResultado(confronto.id(), confronto.partidas().get(0).id(),
+                new ResultadoRequest(2, 0, null, null, false));
+        confrontosPessoais.registrarResultado(confronto.id(), confronto.partidas().get(1).id(),
+                new ResultadoRequest(0, 1, null, null, false));
+        entityManager.flush();
+        entityManager.clear();
+        var salvo = confrontosPessoais.buscar(confronto.id());
+        assertEquals(um.id(), salvo.vencedor().jogador().id());
+        assertEquals(com.datadynecode.futcompetitivo.api.entity.StatusPartidaPessoal.CANCELADA,
+                salvo.partidas().getLast().status());
+        assertNull(salvo.partidas().getLast().resultado());
+    }
 
     @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
-        assertEquals(7, flyway.info().applied().length);
+        assertEquals(8, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
