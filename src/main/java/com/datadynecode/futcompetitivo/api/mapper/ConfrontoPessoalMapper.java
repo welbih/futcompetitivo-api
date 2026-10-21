@@ -20,7 +20,7 @@ public class ConfrontoPessoalMapper {
                 confronto.getPartidas().stream().map(this::toResponse).toList());
     }
 
-    private PartidaPessoalResponse toResponse(PartidaPessoal partida) {
+    private PartidaPessoalResponse toResponse(Partida partida) {
         Resultado r = partida.getResultado();
         return new PartidaPessoalResponse(partida.getId(), partida.getNumero(), participantes.toResponse(partida.getMandante()),
                 participantes.toResponse(partida.getVisitante()), partida.getStatus(), r == null ? null :

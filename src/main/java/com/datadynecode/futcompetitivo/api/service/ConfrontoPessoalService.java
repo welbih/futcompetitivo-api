@@ -44,8 +44,8 @@ public class ConfrontoPessoalService {
         confronto.setTipo(request.tipo());
         confronto.setEncerrarAntecipadamente(Boolean.TRUE.equals(request.encerrarAntecipadamente()));
         for (int numero = 1; numero <= request.tipo().getQuantidadePartidas(); numero++) {
-            PartidaPessoal partida = new PartidaPessoal();
-            partida.setConfronto(confronto);
+            Partida partida = new Partida();
+            partida.setX1(confronto);
             partida.setNumero(numero);
             partida.setMandante(numero % 2 == 1 ? confronto.getParticipanteUm() : confronto.getParticipanteDois());
             partida.setVisitante(numero % 2 == 1 ? confronto.getParticipanteDois() : confronto.getParticipanteUm());
@@ -57,15 +57,15 @@ public class ConfrontoPessoalService {
     @Transactional
     public ConfrontoPessoalResponse registrarResultado(Long id, Long partidaId, ResultadoRequest request) {
         ConfrontoPessoal confronto = buscarParaAtualizar(id);
-        PartidaPessoal partida = confronto.getPartidas().stream().filter(p -> p.getId().equals(partidaId))
+        Partida partida = confronto.getPartidas().stream().filter(p -> p.getId().equals(partidaId))
                 .findFirst().orElseThrow(() -> naoEncontrado("Partida do confronto pessoal", partidaId));
-        exigir(partida.getStatus() != StatusPartidaPessoal.CANCELADA, "Não é possível registrar resultado em partida cancelada.");
+        exigir(partida.getStatus() != StatusPartida.CANCELADA, "Não é possível registrar resultado em partida cancelada.");
         exigir(confronto.getPartidas().stream().filter(p -> p.getNumero() < partida.getNumero())
-                .allMatch(p -> p.getStatus() == StatusPartidaPessoal.FINALIZADA), "Registre as partidas na ordem.");
+                .allMatch(p -> p.getStatus() == StatusPartida.FINALIZADA), "Registre as partidas na ordem.");
         validarResultado(request);
         partida.setResultado(new Resultado(false, request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
-        partida.setStatus(StatusPartidaPessoal.FINALIZADA);
+        partida.setStatus(StatusPartida.FINALIZADA);
         atualizarSituacao(confronto);
         return mapper.toResponse(repository.saveAndFlush(confronto));
     }
@@ -81,11 +81,11 @@ public class ConfrontoPessoalService {
 
     private void atualizarSituacao(ConfrontoPessoal confronto) {
         boolean cancelar = confronto.isEncerrarAntecipadamente() && atingiuMaioria(confronto);
-        confronto.getPartidas().stream().filter(p -> p.getStatus() != StatusPartidaPessoal.FINALIZADA).forEach(p -> {
+        confronto.getPartidas().stream().filter(p -> p.getStatus() != StatusPartida.FINALIZADA).forEach(p -> {
             p.setResultado(null);
-            p.setStatus(cancelar ? StatusPartidaPessoal.CANCELADA : StatusPartidaPessoal.AGENDADA);
+            p.setStatus(cancelar ? StatusPartida.CANCELADA : StatusPartida.AGENDADA);
         });
-        confronto.setStatus(confronto.getPartidas().stream().anyMatch(p -> p.getStatus() == StatusPartidaPessoal.AGENDADA)
+        confronto.setStatus(confronto.getPartidas().stream().anyMatch(p -> p.getStatus() == StatusPartida.AGENDADA)
                 ? StatusConfrontoPessoal.EM_ANDAMENTO : StatusConfrontoPessoal.FINALIZADO);
     }
 

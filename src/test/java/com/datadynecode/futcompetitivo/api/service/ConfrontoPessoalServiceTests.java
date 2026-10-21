@@ -76,8 +76,8 @@ class ConfrontoPessoalServiceTests {
             assertEquals(StatusConfrontoPessoal.FINALIZADO, confronto.status());
             assertEquals(vitoriasUm > vitoriasDois ? um : dois, confronto.vencedor().jogador().id());
             if (antecipar) assertEquals(tipo.getVitoriasNecessarias(), Math.max(vitoriasUm, vitoriasDois));
-            assertEquals(total - jogados, confronto.partidas().stream().filter(p -> p.status() == StatusPartidaPessoal.CANCELADA).count());
-            assertTrue(confronto.partidas().stream().filter(p -> p.status() == StatusPartidaPessoal.CANCELADA)
+            assertEquals(total - jogados, confronto.partidas().stream().filter(p -> p.status() == StatusPartida.CANCELADA).count());
+            assertTrue(confronto.partidas().stream().filter(p -> p.status() == StatusPartida.CANCELADA)
                     .allMatch(p -> p.resultado() == null));
             if (!antecipar) assertEquals(total, jogados);
         }
@@ -110,7 +110,7 @@ class ConfrontoPessoalServiceTests {
         var reaberto = recarregar(confronto.id());
         assertEquals(StatusConfrontoPessoal.EM_ANDAMENTO, reaberto.status());
         assertNull(reaberto.vencedor());
-        assertEquals(StatusPartidaPessoal.AGENDADA, reaberto.partidas().getLast().status());
+        assertEquals(StatusPartida.AGENDADA, reaberto.partidas().getLast().status());
         service.registrarResultado(confronto.id(), confronto.partidas().getLast().id(), placar(false));
         assertEquals(confronto.participanteDois().id(), recarregar(confronto.id()).vencedor().id());
         service.registrarResultado(confronto.id(), confronto.partidas().getLast().id(), placar(true));
@@ -195,7 +195,7 @@ class ConfrontoPessoalServiceTests {
         assertEquals(0, salvo.vitoriasParticipanteUm());
         assertEquals(0, salvo.vitoriasParticipanteDois());
         assertNull(salvo.vencedor());
-        assertTrue(salvo.partidas().stream().allMatch(p -> p.status() == StatusPartidaPessoal.FINALIZADA));
+        assertTrue(salvo.partidas().stream().allMatch(p -> p.status() == StatusPartida.FINALIZADA));
         var primeira = salvo.partidas().getFirst();
         assertThrows(RegraConfrontoPessoalException.class, () -> service.registrarResultado(salvo.id(), primeira.id(),
                 new ResultadoRequest(1, 1, 3, null, false)));

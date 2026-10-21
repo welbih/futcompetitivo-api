@@ -97,8 +97,15 @@ operação mantém o mesmo resultado.
 
 ## Persistência e validação
 
-A migração PostgreSQL `V8__criar_confrontos_pessoais.sql` cria tabelas e
-sequences próprias. Os formatos e o fluxo dos campeonatos permanecem intactos.
+A migração PostgreSQL `V9__unificar_partidas_x1.sql` renomeia a tabela do
+confronto para `x1` e transfere as partidas existentes para a tabela compartilhada
+`partida`, preservando participantes, ordem, status e resultados. A tabela
+`partida_pessoal` e sua sequence são removidas. Os IDs das partidas transferidas
+são gerados pela sequence compartilhada; consulte o X1 novamente para obter
+esses IDs. O ID do X1 permanece o mesmo.
+
+Partidas do X1 têm `x1_id` e `numero`, sem vínculo com rodada ou confronto de
+campeonato. Os formatos e o fluxo dos campeonatos permanecem intactos.
 Os testes estão nos pacotes `controller`, `service` e `migration`, com cobertura
 dos dois formatos, combinações de vitórias, encerramento manual e automático,
 correções, validações e persistência.

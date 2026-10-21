@@ -55,14 +55,14 @@ class FlywayMigrationTests {
         entityManager.clear();
         var salvo = confrontosPessoais.buscar(confronto.id());
         assertEquals(um.id(), salvo.vencedor().jogador().id());
-        assertEquals(com.datadynecode.futcompetitivo.api.entity.StatusPartidaPessoal.CANCELADA,
+        assertEquals(com.datadynecode.futcompetitivo.api.entity.StatusPartida.CANCELADA,
                 salvo.partidas().getLast().status());
         assertNull(salvo.partidas().getLast().resultado());
     }
 
     @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
-        assertEquals(8, flyway.info().applied().length);
+        assertEquals(9, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
