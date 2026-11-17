@@ -30,6 +30,29 @@ class ConfrontoPessoalServiceTests {
     @Autowired EntityManager em;
 
     @Test
+    void removeConfrontoComPartidasEResultadosPreservandoCadastros() {
+        var confronto = criar(TipoSeriePessoal.MELHOR_DE_TRES, false);
+        service.registrarResultado(confronto.id(), confronto.partidas().getFirst().id(), placar(true));
+        long totalParticipantes = participantes.count(), totalEquipes = equipes.count();
+
+        service.remover(confronto.id());
+        em.clear();
+
+        assertNull(em.find(ConfrontoPessoal.class, confronto.id()));
+        confronto.partidas().forEach(partida -> assertNull(em.find(Partida.class, partida.id())));
+        assertEquals(totalParticipantes, participantes.count());
+        assertEquals(totalEquipes, equipes.count());
+        assertNotNull(em.find(Jogador.class, confronto.participanteUm().jogador().id()));
+        assertNotNull(em.find(Jogador.class, confronto.participanteDois().jogador().id()));
+    }
+
+    @Test
+    void retorna404AoRemoverConfrontoInexistente() {
+        var erro = assertThrows(ResponseStatusException.class, () -> service.remover(Long.MAX_VALUE));
+        assertEquals(404, erro.getStatusCode().value());
+    }
+
+    @Test
     void criaDoisParticipantesPropriosComJogadorEEquipeSemCampeonato() {
         long campeonatosAntes = campeonatos.count(), equipesAntes = equipes.count(), participantesAntes = participantes.count();
         var confronto = criar(TipoSeriePessoal.MELHOR_DE_TRES, null);
