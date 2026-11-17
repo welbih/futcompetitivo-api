@@ -28,6 +28,22 @@ class CampeonatoControllerTests {
     }
 
     @Test
+    void deletaCampeonatoSemConteudo() throws Exception {
+        mvc.perform(delete("/campeonatos/1"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(service).deletar(1L);
+    }
+
+    @Test
+    void deletarCampeonatoInexistenteRetorna404() throws Exception {
+        doThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Campeonato não encontrado."))
+                .when(service).deletar(1L);
+        mvc.perform(delete("/campeonatos/1")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void cadastroValidaCamposObrigatorios() throws Exception {
         mvc.perform(post("/campeonatos").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())

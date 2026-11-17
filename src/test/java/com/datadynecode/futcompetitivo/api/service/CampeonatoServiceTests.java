@@ -31,6 +31,42 @@ class CampeonatoServiceTests {
     @Autowired private EntityManager entityManager;
 
     @ParameterizedTest
+    @EnumSource(value = TipoFormato.class, names = {"LIGA", "ELIMINATORIO", "GRUPOS"})
+    void deletaEstruturaDoCampeonatoEPreservaCadastros(TipoFormato formato) {
+        var org = organizacoes.criar(new OrganizacaoRequest("Excluir campeonato", true));
+        var selecao = selecoes(criarParticipantes(4));
+        var criado = service.criar(new CampeonatoRequest(org.id(), 2026, selecao));
+        var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(
+                formato, false, null, null, formato == TipoFormato.GRUPOS ? 4 : null));
+        var rodada = iniciado.fases().getFirst().rodadas().getFirst();
+        rodada.partidas().forEach(p -> service.registrarResultado(criado.id(), p.id(),
+                new ResultadoRequest(2, 0, null, null, false)));
+        var idsParticipantes = repository.findById(criado.id()).orElseThrow().getParticipantes()
+                .stream().map(Participante::getId).toList();
+        recarregar();
+
+        service.deletar(criado.id());
+        recarregar();
+
+        assertFalse(repository.existsById(criado.id()));
+        assertNotNull(entityManager.find(Organizacao.class, org.id()));
+        idsParticipantes.forEach(id -> assertNotNull(entityManager.find(Participante.class, id)));
+        iniciado.fases().forEach(f -> {
+            assertNull(entityManager.find(Fase.class, f.id()));
+            f.rodadas().forEach(r -> {
+                assertNull(entityManager.find(Rodada.class, r.id()));
+                r.partidas().forEach(p -> assertNull(entityManager.find(Partida.class, p.id())));
+            });
+        });
+    }
+
+    @Test
+    void deletarCampeonatoInexistenteRetorna404() {
+        var erro = assertThrows(ResponseStatusException.class, () -> service.deletar(Long.MAX_VALUE));
+        assertEquals(404, erro.getStatusCode().value());
+    }
+
+    @ParameterizedTest
     @EnumSource(value = TipoFormato.class, names = {"LIGA", "LIGA_PARCIAL", "SWISS"})
     void registraTodosOsResultadosSemEncerrarEAguardaFinalizacaoManual(TipoFormato formato) {
         var org = organizacoes.criar(new OrganizacaoRequest("Rodadas manuais", true));

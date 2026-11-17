@@ -35,6 +35,12 @@ public class CampeonatoController {
         return service.atualizar(id, request);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletar(@PathVariable Long id) {
+        service.deletar(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/iniciar")
     public CampeonatoResponse iniciar(@PathVariable Long id, @Valid @RequestBody IniciarCampeonatoRequest request) {
         return service.iniciar(id, request);

@@ -36,6 +36,11 @@ public class CampeonatoService {
     public CampeonatoResponse buscar(Long id) { return mapper.toResponse(buscarEntidade(id)); }
 
     @Transactional
+    public void deletar(Long id) {
+        repository.delete(buscarEntidade(id));
+    }
+
+    @Transactional
     public CampeonatoResponse criar(CampeonatoRequest request) {
         Campeonato campeonato = new Campeonato();
         preencher(campeonato, request);

@@ -33,11 +33,19 @@ Trocar a seleção no campeonato não modifica o participante de outros campeona
 | GET | `/campeonatos` | Listar |
 | GET | `/campeonatos/{id}` | Consultar com calendário e histórico |
 | PUT | `/campeonatos/{id}` | Atualizar enquanto estiver `CRIADO` |
+| DELETE | `/campeonatos/{id}` | Deletar o campeonato e sua estrutura |
 | POST | `/campeonatos/{id}/iniciar` | Gerar a estrutura e iniciar |
 | POST | `/campeonatos/{id}/rodadas/swiss` | Gerar a próxima rodada suíça |
 | PUT | `/campeonatos/{id}/partidas/{partidaId}/resultado` | Registrar resultado |
 | GET | `/campeonatos/{id}/classificacao` | Consultar a última classificação |
 | GET | `/campeonatos/{id}/classificados?quantidade=2` | Consultar os primeiros colocados |
+
+### Deletar
+
+`DELETE /campeonatos/{id}` exclui definitivamente o campeonato em qualquer status,
+incluindo fases, grupos, rodadas, partidas e classificações. Organização,
+participantes, jogadores e equipes são preservados. Retorna `204 No Content`
+em caso de sucesso e `404 Not Found` se o campeonato não existir.
 
 ### Criar
 
