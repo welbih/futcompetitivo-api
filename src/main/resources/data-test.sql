@@ -51,3 +51,5 @@ WHERE j.nome = 'Mateus' AND e.nome = 'Arsenal';
 ALTER SEQUENCE jogador_seq RESTART WITH 60;
 ALTER SEQUENCE equipe_seq RESTART WITH 58;
 ALTER SEQUENCE participante_seq RESTART WITH 57;
+
+INSERT INTO roles (id, authority) VALUES (NEXT VALUE FOR roles_seq, 'ROLE_ADMIN'), (NEXT VALUE FOR roles_seq, 'ROLE_USER');

@@ -27,6 +27,20 @@ class ConfrontoPessoalControllerTests {
     }
 
     @Test
+    void removeConfrontoSemRetornarCorpo() throws Exception {
+        mvc.perform(delete("/x1/10")).andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(service).remover(10L);
+    }
+
+    @Test
+    void retorna404AoRemoverConfrontoInexistente() throws Exception {
+        doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND))
+                .when(service).remover(10L);
+        mvc.perform(delete("/x1/10")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void exigeDoisJogadoresETipoDeSerie() throws Exception {
         mvc.perform(post("/x1").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())

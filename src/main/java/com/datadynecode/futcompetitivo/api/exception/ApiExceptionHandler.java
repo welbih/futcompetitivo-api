@@ -11,6 +11,26 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(EmailJaCadastradoException.class)
+    public ProblemDetail tratarEmailDuplicado(EmailJaCadastradoException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(CadastroInvalidoException.class)
+    public ProblemDetail tratarCadastro(CadastroInvalidoException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
+    @ExceptionHandler(UsuarioNaoEncontradoException.class)
+    public ProblemDetail tratarUsuarioNaoEncontrado(UsuarioNaoEncontradoException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler({TokenInativoException.class, UsuarioAutenticadoNaoEncontradoException.class})
+    public ProblemDetail tratarAutenticacao(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
     @ExceptionHandler(RegraConfrontoPessoalException.class)
     public ProblemDetail tratarRegraConfrontoPessoal(RegraConfrontoPessoalException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());

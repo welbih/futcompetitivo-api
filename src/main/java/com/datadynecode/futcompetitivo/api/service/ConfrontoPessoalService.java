@@ -31,6 +31,13 @@ public class ConfrontoPessoalService {
     }
 
     @Transactional
+    public void remover(Long id) {
+        ConfrontoPessoal confronto = buscarParaAtualizar(id);
+        repository.delete(confronto);
+        repository.flush();
+    }
+
+    @Transactional
     public ConfrontoPessoalResponse criar(ConfrontoPessoalRequest request) {
         exigir(request.participanteUm() != null, "participanteUm é obrigatório.");
         exigir(request.participanteDois() != null, "participanteDois é obrigatório.");

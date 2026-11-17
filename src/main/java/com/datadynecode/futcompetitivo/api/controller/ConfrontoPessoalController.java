@@ -29,6 +29,12 @@ public class ConfrontoPessoalController {
     @GetMapping("/{id}")
     public ConfrontoPessoalResponse buscar(@PathVariable Long id) { return service.buscar(id); }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> remover(@PathVariable Long id) {
+        service.remover(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PutMapping("/{id}/partidas/{partidaId}/resultado")
     public ConfrontoPessoalResponse registrarResultado(@PathVariable Long id, @PathVariable Long partidaId,
             @Valid @RequestBody ResultadoRequest request) {

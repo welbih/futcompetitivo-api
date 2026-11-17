@@ -44,3 +44,43 @@ Com JDK 25 configurado e Docker Desktop em execução (containers Linux), execut
 Os testes de migração usam PostgreSQL real com Testcontainers, que gerencia
 automaticamente os bancos temporários. Os demais testes continuam em H2.
 Veja [Testcontainers](docs/testcontainers.md) para detalhes.
+
+## Remocao de X1
+
+`DELETE /x1/{id}` remove o confronto e suas partidas, incluindo os resultados.
+Retorna `204 No Content` ou `404 Not Found` quando o X1 nao existe. Jogadores,
+equipes e participantes permanecem cadastrados. A exclusao de X1 e campeonato
+(`DELETE /x1/{id}` e `DELETE /campeonatos/{id}`) exige Bearer JWT com `ROLE_ADMIN`.
+Sem token retorna `401`; com usuario sem a role ADMIN retorna `403`.
+
+## Autenticacao
+
+O login segue o contrato do financeiro-api: `POST /oauth2/token`, Basic Auth
+com `CLIENT_ID`/`CLIENT_SECRET` e corpo `application/x-www-form-urlencoded`:
+
+```text
+grant_type=urn:futcompetitivo:params:oauth:grant-type:password
+username=email-do-usuario
+password=senha-do-usuario
+```
+
+O grant utiliza o identificador proprio do Futcompetitivo.
+A resposta contem `access_token`, `token_type` e `expires_in`. O JWT inclui
+`authorities`, `nome` e `sobrenome`.
+
+`POST /usuarios` cadastra `{ "nome", "sobrenome", "email", "senha" }`, com
+senha BCrypt e role `ROLE_USER`. As roles `ROLE_ADMIN` e `ROLE_USER` sao criadas
+pela migracao V10 (PostgreSQL) e pelo seed local do profile `test` (H2).
+Nenhum usuario ou senha fixa e criado em producao.
+
+As demais rotas de negocio e de administracao de usuarios permanecem abertas, incluindo
+`GET /usuarios` e `PATCH /usuarios/{id}/ativar` ou `/inativar`, sem exigir token
+ou role. Se um Bearer for enviado, ele sera validado. As operacoes da propria
+sessao `POST /auth/logout` e `PUT /usuarios/senha` usam o Bearer para identificar
+a sessao/usuario. Logout revoga o token e usuarios inativos nao podem fazer login.
+
+No ambiente local (`APP_PROFILE=test`), as chaves RSA sao temporarias e as
+Autorizacoes ficam em memoria. Defaults locais: client `futcompetitivo`, secret
+`desenvolvimento-local`, duracao de 3600 segundos. Em producao configure
+`CLIENT_ID`, `CLIENT_SECRET`, `JWT_ISSUER`, `JWT_JWK` (RSA privada, 2048 bits,
+com `kid`) e `CORS_ORIGINS`; as autorizacoes sao persistidas no PostgreSQL.
