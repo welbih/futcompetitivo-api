@@ -70,6 +70,7 @@ public class ConfrontoPessoalService {
         exigir(confronto.getPartidas().stream().filter(p -> p.getNumero() < partida.getNumero())
                 .allMatch(p -> p.getStatus() == StatusPartida.FINALIZADA), "Registre as partidas na ordem.");
         validarResultado(request);
+        partida.setYoutubeUrl(request.youtubeUrl());
         partida.setResultado(new Resultado(false, request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
         partida.setStatus(StatusPartida.FINALIZADA);

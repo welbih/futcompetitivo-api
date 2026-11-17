@@ -8,5 +8,12 @@ public record ResultadoRequest(
         @NotNull(message = "golsVisitante é obrigatório.") @PositiveOrZero Integer golsVisitante,
         @PositiveOrZero Integer penaltisMandante,
         @PositiveOrZero Integer penaltisVisitante,
-        Boolean golDeOuro) {
+        Boolean golDeOuro,
+        @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+        String youtubeUrl) {
+
+    public ResultadoRequest(Integer golsMandante, Integer golsVisitante, Integer penaltisMandante,
+            Integer penaltisVisitante, Boolean golDeOuro) {
+        this(golsMandante, golsVisitante, penaltisMandante, penaltisVisitante, golDeOuro, null);
+    }
 }

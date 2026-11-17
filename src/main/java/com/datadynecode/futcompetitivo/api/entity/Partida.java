@@ -19,6 +19,8 @@ public class Partida {
     @JoinColumn(name = "x1_id")
     private ConfrontoPessoal x1;
     private Integer numero;
+    @Column(columnDefinition = "text")
+    private String youtubeUrl;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(nullable = false)
     private Participante mandante;

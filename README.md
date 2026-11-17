@@ -45,6 +45,20 @@ Os testes de migração usam PostgreSQL real com Testcontainers, que gerencia
 automaticamente os bancos temporários. Os demais testes continuam em H2.
 Veja [Testcontainers](docs/testcontainers.md) para detalhes.
 
+## Video da partida
+
+Os PUTs `/campeonatos/{id}/partidas/{partidaId}/resultado` e
+`/x1/{id}/partidas/{partidaId}/resultado` aceitam o campo opcional `youtubeUrl`
+junto ao placar, por exemplo:
+
+```json
+{"golsMandante":2,"golsVisitante":0,"youtubeUrl":"https://www.youtube.com/watch?v=video"}
+```
+
+O link e retornado no campo `youtubeUrl` da partida. Enviar `null` ou omitir
+o campo no PUT limpa o link. A edicao em lote de resultados tambem aceita
+`youtubeUrl` dentro de cada `resultado`.
+
 ## Remocao de X1
 
 `DELETE /x1/{id}` remove o confronto e suas partidas, incluindo os resultados.
