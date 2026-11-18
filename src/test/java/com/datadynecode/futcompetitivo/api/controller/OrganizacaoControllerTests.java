@@ -15,6 +15,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
 class OrganizacaoControllerTests {
     private OrganizacaoService service;
     private MockMvc mvc;
@@ -24,6 +25,68 @@ class OrganizacaoControllerTests {
         service = mock(OrganizacaoService.class);
         mvc = MockMvcBuilders.standaloneSetup(new OrganizacaoController(service))
                 .setControllerAdvice(new ApiExceptionHandler()).build();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"POST", "PUT"})
+    void recebeTrofeuMultipartNoCadastroEEdicao(String metodo) throws Exception {
+        var dados = new org.springframework.mock.web.MockMultipartFile("dados", "", "application/json",
+                "{\"nome\":\"Liga\",\"ativo\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        byte[] imagem = "<svg xmlns='http://www.w3.org/2000/svg'/>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var trofeu = new org.springframework.mock.web.MockMultipartFile("trofeu", "trofeu.svg", "image/svg+xml", imagem);
+        var request = new OrganizacaoRequest("Liga", true);
+        var response = new OrganizacaoResponse(1L, "Liga", true, "/organizacoes/1/trofeu");
+        when(service.criar(eq(request), any(byte[].class), eq("image/svg+xml"))).thenReturn(response);
+        when(service.atualizar(eq(1L), eq(request), any(byte[].class), eq("image/svg+xml"))).thenReturn(response);
+        mvc.perform(multipart(org.springframework.http.HttpMethod.valueOf(metodo), metodo.equals("POST") ? "/organizacoes" : "/organizacoes/1")
+                .file(dados).file(trofeu))
+                .andExpect(status().is(metodo.equals("POST") ? 201 : 200))
+                .andExpect(jsonPath("$.trofeuUrl").value("/organizacoes/1/trofeu"));
+        if (metodo.equals("POST")) verify(service).criar(request, imagem, "image/svg+xml");
+        else verify(service).atualizar(1L, request, imagem, "image/svg+xml");
+    }
+
+    @Test
+    void informaMotivoDaRejeicaoDoSvgERregistraNoLog(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+        var dados = new org.springframework.mock.web.MockMultipartFile("dados", "", "application/json",
+                "{\"nome\":\"Liga\",\"ativo\":true}".getBytes());
+        var trofeu = new org.springframework.mock.web.MockMultipartFile("trofeu", "trofeu.svg", "image/svg+xml",
+                "<svg xmlns='http://www.w3.org/2000/svg'><script/></svg>".getBytes());
+        when(service.criar(any(), any(byte[].class), anyString())).thenThrow(
+                new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "O SVG deve conter apenas elementos gráficos estáticos."));
+        mvc.perform(multipart("/organizacoes").file(dados).file(trofeu))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value("O SVG deve conter apenas elementos gráficos estáticos."));
+        org.junit.jupiter.api.Assertions.assertTrue(output.getOut().contains("status=400 motivo=O SVG deve conter apenas elementos gráficos estáticos."));
+    }
+
+    @Test
+    void informaParteMultipartAusente() throws Exception {
+        var trofeu = new org.springframework.mock.web.MockMultipartFile("trofeu", "trofeu.svg", "image/svg+xml", "svg".getBytes());
+        mvc.perform(multipart("/organizacoes").file(trofeu))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("dados")));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void informaJsonInvalidoNoMultipart() throws Exception {
+        var dados = new org.springframework.mock.web.MockMultipartFile("dados", "", "application/json", "{invalido".getBytes());
+        var trofeu = new org.springframework.mock.web.MockMultipartFile("trofeu", "trofeu.svg", "image/svg+xml", "svg".getBytes());
+        mvc.perform(multipart("/organizacoes").file(dados).file(trofeu))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("JSON inválido")));
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void retornaImagemSalvaComContentType() throws Exception {
+        byte[] imagem = "<svg xmlns='http://www.w3.org/2000/svg'/>".getBytes();
+        when(service.buscarTrofeu(1L)).thenReturn(new TrofeuImagem(imagem, "image/svg+xml"));
+        mvc.perform(get("/organizacoes/1/trofeu")).andExpect(status().isOk())
+                .andExpect(content().contentType("image/svg+xml")).andExpect(content().bytes(imagem));
     }
 
     @ParameterizedTest

@@ -55,7 +55,8 @@ class AutenticacaoTests {
         assertEquals("maria@example.com", jwt.getSubject());
         assertEquals("Maria", jwt.getClaimAsString("nome"));
         assertEquals(java.util.List.of("ROLE_USER"), jwt.getClaimAsStringList("authorities"));
-        for (String rota : java.util.List.of("/x1/9223372036854775807", "/campeonatos/9223372036854775807")) {
+        for (String rota : java.util.List.of("/x1/9223372036854775807", "/campeonatos/9223372036854775807",
+                "/jogadores/9223372036854775807", "/equipes/9223372036854775807")) {
             assertEquals(401, enviar("DELETE", rota, null, null, null).statusCode());
             assertEquals(403, enviar("DELETE", rota, null, null, "Bearer " + token).statusCode());
         }
@@ -68,10 +69,39 @@ class AutenticacaoTests {
         assertEquals(200, loginAdmin.statusCode());
         String tokenAdmin = JsonPath.read(loginAdmin.body(), "$.access_token");
         assertTrue(decoder.decode(tokenAdmin).getClaimAsStringList("authorities").contains("ROLE_ADMIN"));
-        for (String rota : java.util.List.of("/x1/9223372036854775807", "/campeonatos/9223372036854775807")) {
+        for (String rota : java.util.List.of("/x1/9223372036854775807", "/campeonatos/9223372036854775807",
+                "/jogadores/9223372036854775807", "/equipes/9223372036854775807")) {
             // ADMIN chega ao controller e recebe 404 para o recurso inexistente.
             assertEquals(404, enviar("DELETE", rota, null, null, "Bearer " + tokenAdmin).statusCode());
         }
+        for (String recurso : java.util.List.of("jogadores", "equipes")) {
+            String corpo = recurso.equals("jogadores") ? "{\"nome\":\"Jogador restrito\"}"
+                    : "{\"nome\":\"Equipe restrita\",\"logoUrl\":\"https://example.com/logo.png\"}";
+            var cadastroRestrito = enviar("POST", "/" + recurso, corpo, "application/json", null);
+            assertEquals(201, cadastroRestrito.statusCode(), cadastroRestrito.body());
+            Number id = JsonPath.read(cadastroRestrito.body(), "$.id");
+            String rota = "/" + recurso + "/" + id.longValue();
+            String edicao = recurso.equals("jogadores") ? "{\"nome\":\"Jogador editado\",\"apelido\":\"Novo\"}"
+                    : "{\"nome\":\"Equipe editada\",\"logoUrl\":\"https://example.com/nova.png\"}";
+            assertEquals(401, enviar("PUT", rota, edicao, "application/json", null).statusCode());
+            assertEquals(recurso.equals("jogadores") ? "Jogador restrito" : "Equipe restrita",
+                    JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.nome"));
+            assertEquals(200, enviar("PUT", rota, edicao, "application/json", "Bearer " + token).statusCode());
+            assertEquals(recurso.equals("jogadores") ? "Jogador editado" : "Equipe editada",
+                    JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.nome"));
+            assertEquals(200, enviar("PUT", rota, corpo, "application/json", "Bearer " + tokenAdmin).statusCode());
+            assertEquals(401, enviar("DELETE", rota, null, null, null).statusCode());
+            assertEquals(403, enviar("DELETE", rota, null, null, "Bearer " + token).statusCode());
+            assertEquals(200, enviar("GET", rota, null, null, null).statusCode());
+            assertEquals(204, enviar("DELETE", rota, null, null, "Bearer " + tokenAdmin).statusCode());
+            assertEquals(404, enviar("GET", rota, null, null, null).statusCode());
+            assertEquals(401, enviar("PUT", rota + "/ativar", null, null, null).statusCode());
+            assertEquals(403, enviar("PUT", rota + "/ativar", null, null, "Bearer " + token).statusCode());
+            assertEquals(404, enviar("GET", rota, null, null, null).statusCode());
+            assertEquals(200, enviar("PUT", rota + "/ativar", null, null, "Bearer " + tokenAdmin).statusCode());
+            assertEquals(200, enviar("GET", rota, null, null, null).statusCode());
+        }
+        verificarPermissoesOrganizacao(token, tokenAdmin);
         assertEquals(400, login("errada", "segredo").statusCode());
         assertEquals(401, login("Usuario123!", "errado").statusCode());
         assertEquals(204, enviar("POST", "/auth/logout", "", null, "Bearer " + token).statusCode());
@@ -79,6 +109,35 @@ class AutenticacaoTests {
         assertEquals(200, enviar("GET", "/usuarios", null, null, null).statusCode());
         assertEquals(204, enviar("PATCH", "/usuarios/" + usuario.getId() + "/inativar", "", null, null).statusCode());
         assertEquals(400, login("Usuario123!", "segredo").statusCode());
+    }
+
+    private void verificarPermissoesOrganizacao(String tokenUser, String tokenAdmin) throws Exception {
+        for (boolean multipart : java.util.List.of(false, true)) {
+            String tipo = multipart ? "multipart/form-data; boundary=teste-organizacao" : "application/json";
+            String dados = "{\"nome\":\"Organização restrita\",\"ativo\":true}";
+            String corpo = multipart ? "--teste-organizacao\r\nContent-Disposition: form-data; name=\"dados\"\r\nContent-Type: application/json\r\n\r\n"
+                    + dados + "\r\n--teste-organizacao\r\nContent-Disposition: form-data; name=\"trofeu\"; filename=\"trofeu.svg\"\r\nContent-Type: image/svg+xml\r\n\r\n"
+                    + "<svg xmlns='http://www.w3.org/2000/svg'/>\r\n--teste-organizacao--\r\n" : dados;
+            assertEquals(401, enviar("POST", "/organizacoes", corpo, tipo, null).statusCode());
+            var criada = enviar("POST", "/organizacoes", corpo, tipo, "Bearer " + tokenUser);
+            assertEquals(201, criada.statusCode(), criada.body());
+            assertEquals(201, enviar("POST", "/organizacoes", corpo, tipo, "Bearer " + tokenAdmin).statusCode());
+            Number id = JsonPath.read(criada.body(), "$.id");
+            String rota = "/organizacoes/" + id.longValue();
+            assertEquals(200, enviar("GET", "/organizacoes", null, null, null).statusCode());
+            assertEquals(200, enviar("GET", rota, null, null, null).statusCode());
+            String edicao = corpo.replace("Organização restrita", "Organização editada");
+            assertEquals(401, enviar("PUT", rota, edicao, tipo, null).statusCode());
+            assertEquals(403, enviar("PUT", rota, edicao, tipo, "Bearer " + tokenUser).statusCode());
+            assertEquals("Organização restrita", JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.nome"));
+            assertEquals(200, enviar("PUT", rota, edicao, tipo, "Bearer " + tokenAdmin).statusCode());
+            assertEquals("Organização editada", JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.nome"));
+            assertEquals(401, enviar("DELETE", rota, null, null, null).statusCode());
+            assertEquals(403, enviar("DELETE", rota, null, null, "Bearer " + tokenUser).statusCode());
+            assertEquals(Boolean.TRUE, JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.ativo"));
+            assertEquals(204, enviar("DELETE", rota, null, null, "Bearer " + tokenAdmin).statusCode());
+            assertEquals(Boolean.FALSE, JsonPath.read(enviar("GET", rota, null, null, null).body(), "$.ativo"));
+        }
     }
 
     private HttpResponse<String> login(String senha, String secret) throws Exception {

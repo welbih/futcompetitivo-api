@@ -33,7 +33,12 @@ public class ResourceServerConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}",
+                        "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/organizacoes").authenticated()
+                .requestMatchers(HttpMethod.PUT, "/jogadores/{id}/ativar", "/equipes/{id}/ativar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/jogadores/{id}", "/equipes/{id}").authenticated()
                 .anyRequest().permitAll())
             .oauth2ResourceServer(resource -> resource.jwt(jwt ->
                 jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

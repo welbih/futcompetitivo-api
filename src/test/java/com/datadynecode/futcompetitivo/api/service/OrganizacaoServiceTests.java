@@ -30,6 +30,43 @@ class OrganizacaoServiceTests {
     @Autowired private EntityManager entityManager;
 
     @Test
+    void cadastraTrofeuVilaEPreservaArquivoOriginalNoBanco() throws Exception {
+        try (var input = getClass().getResourceAsStream("/imagens/logo-trofeu-vila.svg")) {
+            assertNotNull(input);
+            byte[] arquivo = input.readAllBytes();
+            var criada = service.criar(new OrganizacaoRequest("Vila", true), arquivo, "image/svg+xml");
+            entityManager.flush(); entityManager.clear();
+            assertArrayEquals(arquivo, service.buscarTrofeu(criada.id()).conteudo());
+            assertEquals("image/svg+xml", service.buscarTrofeu(criada.id()).contentType());
+        }
+    }
+
+    @Test
+    void persisteEAtualizaTrofeuNoBanco() {
+        byte[] original = "<svg xmlns='http://www.w3.org/2000/svg'><circle r='10'/></svg>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        var criado = service.criar(new OrganizacaoRequest("Liga Troféu", true), original, "image/svg+xml");
+        entityManager.flush(); entityManager.clear();
+        assertEquals("/organizacoes/" + criado.id() + "/trofeu", service.buscar(criado.id()).trofeuUrl());
+        assertArrayEquals(original, service.buscarTrofeu(criado.id()).conteudo());
+        assertEquals("image/svg+xml", service.buscarTrofeu(criado.id()).contentType());
+        service.atualizar(criado.id(), new OrganizacaoRequest("Liga Renomeada", true));
+        entityManager.flush(); entityManager.clear();
+        assertArrayEquals(original, service.buscarTrofeu(criado.id()).conteudo());
+        byte[] atualizado = "<svg xmlns='http://www.w3.org/2000/svg'><rect width='10' height='10'/></svg>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        service.atualizar(criado.id(), new OrganizacaoRequest("Liga", false), atualizado, "image/svg+xml");
+        entityManager.flush(); entityManager.clear();
+        assertArrayEquals(atualizado, service.buscarTrofeu(criado.id()).conteudo());
+        assertFalse(service.buscar(criado.id()).ativo());
+    }
+
+    @Test
+    void retorna404QuandoNaoExisteTrofeu() {
+        var criado = service.criar(new OrganizacaoRequest("Sem troféu", true));
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> service.buscarTrofeu(criado.id())).getStatusCode().value());
+    }
+
+    @Test
     void cadastraAtualizaDesativaEReativaSemExcluir() {
         var criado = service.criar(new OrganizacaoRequest("Liga", true));
         assertNotNull(criado.id());
