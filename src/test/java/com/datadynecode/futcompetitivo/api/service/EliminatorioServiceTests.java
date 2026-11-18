@@ -64,7 +64,7 @@ class EliminatorioServiceTests {
             campeonato = service.buscar(id);
             assertNotNull(campeonato.fases().getFirst().rodadas().getFirst().etapa());
             assertTrue(campeonato.fases().getFirst().confrontos().stream()
-                    .allMatch(c -> c.partidas().size() <= 1));
+                    .allMatch(c -> c.partidaIds().size() <= 1));
         }
         assertEquals(quantidade - 1, disputadas);
         assertEquals(campeaoEsperado, service.vencedor(id).id());

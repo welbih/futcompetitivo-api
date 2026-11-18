@@ -35,9 +35,9 @@ public class CampeonatoMapper {
                 rodadas.add(toResponse(rodada, disputasFinais
                         ? new EtapaResponse("DISPUTAS_FINAIS", "Final e disputa de terceiro lugar") : etapa));
                 if (disputasFinais) fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar)
-                        .forEach(c -> confrontos.add(toResponse(c, new EtapaResponse("TERCEIRO_LUGAR", "Disputa de terceiro lugar"))));
+                        .forEach(c -> confrontos.add(toResponse(c, new EtapaResponse("TERCEIRO_LUGAR", "Disputa de terceiro lugar"), true)));
                 chave.subList(inicio, inicio + quantidade)
-                        .forEach(c -> confrontos.add(toResponse(c, etapa)));
+                        .forEach(c -> confrontos.add(toResponse(c, etapa, true)));
             }
             return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos,
                     fase.getQuantidadeClassificados(), fase.getGrupos().stream().map(this::toResponse).toList(),
@@ -76,16 +76,18 @@ public class CampeonatoMapper {
     }
 
     public ConfrontoResponse toResponse(Confronto confronto) {
-        return toResponse(confronto, null);
+        return toResponse(confronto, null, false);
     }
 
-    private ConfrontoResponse toResponse(Confronto confronto, EtapaResponse etapa) {
+    private ConfrontoResponse toResponse(Confronto confronto, EtapaResponse etapa, boolean apenasReferencias) {
         return new ConfrontoResponse(confronto.getId(),
                 confronto.getParticipanteUm() == null ? null : confronto.getParticipanteUm().getId(),
                 confronto.getParticipanteDois() == null ? null : confronto.getParticipanteDois().getId(),
                 confronto.getOrigemUm() == null ? null : confronto.getOrigemUm().getId(),
                 confronto.getOrigemDois() == null ? null : confronto.getOrigemDois().getId(),
-                confronto.getTipo(), confronto.getPartidas().stream().map(this::toResponse).toList(), etapa, confronto.isTerceiroLugar());
+                confronto.getTipo(), apenasReferencias ? null : confronto.getPartidas().stream().map(this::toResponse).toList(),
+                etapa, confronto.isTerceiroLugar(),
+                apenasReferencias ? confronto.getPartidas().stream().map(Partida::getId).toList() : null);
     }
 
     private EtapaResponse etapa(int confrontos, boolean preliminar) {

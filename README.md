@@ -72,6 +72,15 @@ curl.exe -X POST http://localhost:8080/organizacoes -F 'dados={"nome":"Liga","at
 O frontend pode exibir a previa do arquivo selecionado com `URL.createObjectURL`
 antes de enviar o formulario. Nenhuma imagem e persistida ate o envio do cadastro.
 
+## Partidas no retorno do mata-mata
+
+Em fases `ELIMINATORIA`, os dados completos das partidas aparecem apenas em
+`fases[].rodadas[].partidas`. Cada confronto retorna `partidaIds` em vez de
+`partidas`, preservando a ordem de jogo unico ou ida e volta. Confrontos ainda
+sem partidas retornam `partidaIds: []`. A regra inclui terceiro lugar e etapas
+eliminatorias de campeonatos mistos/com grupos; os demais tipos de fase e o X1
+mantem seu contrato anterior. O frontend deve resolver cada ID nas rodadas da fase.
+
 ## Video da partida
 
 Os PUTs `/campeonatos/{id}/partidas/{partidaId}/resultado` e
