@@ -104,6 +104,7 @@ public class CampeonatoService {
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
         validarResultado(request, fase.getTipo());
         if (validarConfrontos) validadorEliminatorio.validar(fase, Map.of(partidaId, request));
+        partida.setYoutubeUrl(request.youtubeUrl());
         if (partida.isFinalizada()
                 && Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
                 && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())

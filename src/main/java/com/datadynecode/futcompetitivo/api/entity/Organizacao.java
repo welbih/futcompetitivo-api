@@ -20,4 +20,10 @@ public class Organizacao {
 
     @Column(nullable = false)
     private boolean ativo = true;
+
+    @Column(length = 2097152)
+    private byte[] trofeu;
+
+    @Column(length = 30)
+    private String trofeuContentType;
 }

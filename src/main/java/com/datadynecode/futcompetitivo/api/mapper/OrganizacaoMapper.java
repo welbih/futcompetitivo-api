@@ -13,6 +13,7 @@ public class OrganizacaoMapper {
     }
 
     public OrganizacaoResponse toResponse(Organizacao organizacao) {
-        return new OrganizacaoResponse(organizacao.getId(), organizacao.getNome(), organizacao.isAtivo());
+        return new OrganizacaoResponse(organizacao.getId(), organizacao.getNome(), organizacao.isAtivo(),
+                organizacao.getTrofeu() == null ? null : "/organizacoes/" + organizacao.getId() + "/trofeu");
     }
 }

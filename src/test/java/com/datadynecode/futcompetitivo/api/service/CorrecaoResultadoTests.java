@@ -28,6 +28,25 @@ class CorrecaoResultadoTests {
     @Autowired private EntityManager entityManager;
 
     @ParameterizedTest
+    @EnumSource(value = TipoFormato.class, names = {"LIGA"})
+    void editaYoutubeUrlMesmoSemAlterarPlacar(TipoFormato formato) {
+        var campeonato = iniciar(formato);
+        Long partidaId = campeonato.fases().getFirst().rodadas().getFirst().partidas().getFirst().id();
+        service.registrarResultado(campeonato.id(), partidaId,
+                new ResultadoRequest(1, 0, null, null, false, "https://youtube.com/watch?v=primeiro"));
+        recarregar();
+        assertEquals("https://youtube.com/watch?v=primeiro", entityManager.find(Partida.class, partidaId).getYoutubeUrl());
+        service.registrarResultado(campeonato.id(), partidaId,
+                new ResultadoRequest(1, 0, null, null, false, "https://youtube.com/watch?v=segundo"));
+        recarregar();
+        assertEquals("https://youtube.com/watch?v=segundo", service.buscar(campeonato.id()).fases()
+                .getFirst().rodadas().getFirst().partidas().getFirst().youtubeUrl());
+        service.registrarResultado(campeonato.id(), partidaId, new ResultadoRequest(1, 0, null, null, false, null));
+        recarregar();
+        assertNull(entityManager.find(Partida.class, partidaId).getYoutubeUrl());
+    }
+
+    @ParameterizedTest
     @EnumSource(value = TipoFormato.class, names = {"LIGA", "LIGA_PARCIAL", "SWISS"})
     void corrigeCampeonatoFinalizadoRecalculandoHistoricoSemDuplicarEstatisticas(TipoFormato formato) {
         var campeonato = iniciar(formato);

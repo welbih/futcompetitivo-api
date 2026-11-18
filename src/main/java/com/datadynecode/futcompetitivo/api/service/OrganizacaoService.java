@@ -18,6 +18,35 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrganizacaoService {
     private final OrganizacaoRepository repository;
     private final OrganizacaoMapper mapper;
+    private final TrofeuImagemService imagens;
+
+    @Transactional
+    public OrganizacaoResponse criar(OrganizacaoRequest request, byte[] trofeu, String contentType) {
+        var imagem = imagens.validar(trofeu, contentType);
+        Organizacao organizacao = new Organizacao();
+        mapper.atualizar(organizacao, request);
+        organizacao.setTrofeu(imagem.conteudo());
+        organizacao.setTrofeuContentType(imagem.contentType());
+        return mapper.toResponse(repository.save(organizacao));
+    }
+
+    @Transactional
+    public OrganizacaoResponse atualizar(Long id, OrganizacaoRequest request, byte[] trofeu, String contentType) {
+        var imagem = imagens.validar(trofeu, contentType);
+        Organizacao organizacao = buscarEntidade(id);
+        mapper.atualizar(organizacao, request);
+        organizacao.setTrofeu(imagem.conteudo());
+        organizacao.setTrofeuContentType(imagem.contentType());
+        return mapper.toResponse(repository.save(organizacao));
+    }
+
+    public TrofeuImagem buscarTrofeu(Long id) {
+        var organizacao = buscarEntidade(id);
+        if (organizacao.getTrofeu() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Troféu não cadastrado.");
+        }
+        return new TrofeuImagem(organizacao.getTrofeu(), organizacao.getTrofeuContentType());
+    }
 
     public List<OrganizacaoResponse> listar() {
         return repository.findAll(Sort.by("id")).stream().map(mapper::toResponse).toList();

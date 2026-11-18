@@ -30,6 +30,24 @@ class ConfrontoPessoalServiceTests {
     @Autowired EntityManager em;
 
     @Test
+    void editaYoutubeUrlDaPartida() {
+        var confronto = criar(TipoSeriePessoal.MELHOR_DE_TRES, false);
+        Long partidaId = confronto.partidas().getFirst().id();
+        service.registrarResultado(confronto.id(), partidaId,
+                new ResultadoRequest(2, 0, null, null, false, "https://youtube.com/watch?v=primeiro"));
+        em.flush();
+        em.clear();
+        assertEquals("https://youtube.com/watch?v=primeiro", service.buscar(confronto.id()).partidas().getFirst().youtubeUrl());
+        service.registrarResultado(confronto.id(), partidaId,
+                new ResultadoRequest(2, 0, null, null, false, "https://youtube.com/watch?v=segundo"));
+        em.clear();
+        assertEquals("https://youtube.com/watch?v=segundo", service.buscar(confronto.id()).partidas().getFirst().youtubeUrl());
+        service.registrarResultado(confronto.id(), partidaId, new ResultadoRequest(2, 0, null, null, false, null));
+        em.clear();
+        assertNull(service.buscar(confronto.id()).partidas().getFirst().youtubeUrl());
+    }
+
+    @Test
     void removeConfrontoComPartidasEResultadosPreservandoCadastros() {
         var confronto = criar(TipoSeriePessoal.MELHOR_DE_TRES, false);
         service.registrarResultado(confronto.id(), confronto.partidas().getFirst().id(), placar(true));

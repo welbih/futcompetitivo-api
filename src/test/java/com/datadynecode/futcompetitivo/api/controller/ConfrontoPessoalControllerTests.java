@@ -27,6 +27,16 @@ class ConfrontoPessoalControllerTests {
     }
 
     @Test
+    void recebeYoutubeUrlNaEdicaoDaPartida() throws Exception {
+        when(service.registrarResultado(eq(10L), eq(20L), any())).thenReturn(response());
+        mvc.perform(put("/x1/10/partidas/20/resultado").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"golsMandante\":2,\"golsVisitante\":0,\"youtubeUrl\":\"https://youtube.com/watch?v=teste\"}"))
+                .andExpect(status().isOk());
+        verify(service).registrarResultado(10L, 20L,
+                new ResultadoRequest(2, 0, null, null, null, "https://youtube.com/watch?v=teste"));
+    }
+
+    @Test
     void removeConfrontoSemRetornarCorpo() throws Exception {
         mvc.perform(delete("/x1/10")).andExpect(status().isNoContent())
                 .andExpect(content().string(""));

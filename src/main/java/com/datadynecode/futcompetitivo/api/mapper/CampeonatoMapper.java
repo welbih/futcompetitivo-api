@@ -72,7 +72,7 @@ public class CampeonatoMapper {
                 participanteMapper.toResponse(partida.getVisitante()), partida.getStatus(),
                 resultado == null ? null : new ResultadoRequest(resultado.getGolsMandante(),
                         resultado.getGolsVisitante(), resultado.getPenaltisMandante(),
-                        resultado.getPenaltisVisitante(), resultado.isGolDeOuro()));
+                        resultado.getPenaltisVisitante(), resultado.isGolDeOuro()), partida.getYoutubeUrl());
     }
 
     public ConfrontoResponse toResponse(Confronto confronto) {

@@ -25,6 +25,6 @@ public class ConfrontoPessoalMapper {
         return new PartidaPessoalResponse(partida.getId(), partida.getNumero(), participantes.toResponse(partida.getMandante()),
                 participantes.toResponse(partida.getVisitante()), partida.getStatus(), r == null ? null :
                 new ResultadoRequest(r.getGolsMandante(), r.getGolsVisitante(), r.getPenaltisMandante(),
-                        r.getPenaltisVisitante(), r.isGolDeOuro()));
+                        r.getPenaltisVisitante(), r.isGolDeOuro()), partida.getYoutubeUrl());
     }
 }
