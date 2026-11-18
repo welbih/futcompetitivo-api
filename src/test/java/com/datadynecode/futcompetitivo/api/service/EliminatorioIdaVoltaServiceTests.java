@@ -42,13 +42,13 @@ class EliminatorioIdaVoltaServiceTests {
             var rodada = campeonato.fases().getFirst().rodadas().stream().filter(r -> r.status() == RodadaStatus.EM_ANDAMENTO).findFirst().orElseThrow();
             var ids = rodada.partidas().stream().map(PartidaResponse::id).toList();
             var confrontos = campeonato.fases().getFirst().confrontos().stream()
-                    .filter(c -> c.partidas().stream().anyMatch(p -> ids.contains(p.id()))).toList();
+                    .filter(c -> c.partidaIds().stream().anyMatch(ids::contains)).toList();
             for (var confronto : confrontos) {
-                var ida = confronto.partidas().getFirst();
+                var ida = partidas(campeonato.id(), confronto).getFirst();
                 campeaoEsperado = ida.mandante().id();
                 if (confronto.tipo() == TipoConfronto.IDA_E_VOLTA) {
-                    assertEquals(2, confronto.partidas().size());
-                    var volta = confronto.partidas().getLast();
+                    assertEquals(2, partidas(campeonato.id(), confronto).size());
+                    var volta = partidas(campeonato.id(), confronto).getLast();
                     assertEquals(ida.mandante().id(), volta.visitante().id());
                     assertEquals(ida.visitante().id(), volta.mandante().id());
                     service.registrarResultado(id, ida.id(), placar(3, 0));
@@ -58,7 +58,7 @@ class EliminatorioIdaVoltaServiceTests {
                     service.registrarResultado(id, volta.id(), placar(2, 0));
                     jogos += 2;
                 } else {
-                    assertEquals(1, confronto.partidas().size());
+                    assertEquals(1, partidas(campeonato.id(), confronto).size());
                     service.registrarResultado(id, ida.id(), new ResultadoRequest(0, 0, 5, 4, false));
                     jogos++;
                 }
@@ -74,8 +74,8 @@ class EliminatorioIdaVoltaServiceTests {
     void validaOrdemDaVoltaEEmpateAgregadoMesmoSemEmpateNoJogo() {
         var campeonato = iniciar(4, FormatoEliminatorio.IDA_E_VOLTA_FINAL_UNICA);
         var confronto = campeonato.fases().getFirst().confrontos().getFirst();
-        var ida = confronto.partidas().getFirst();
-        var volta = confronto.partidas().getLast();
+        var ida = partidas(campeonato.id(), confronto).getFirst();
+        var volta = partidas(campeonato.id(), confronto).getLast();
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(campeonato.id(), volta.id(), placar(1, 0)));
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(campeonato.id(), ida.id(),
                 new ResultadoRequest(0, 0, 5, 4, false)));
@@ -85,8 +85,8 @@ class EliminatorioIdaVoltaServiceTests {
                 new ResultadoRequest(1, 0, 5, 4, false)));
         service.registrarResultado(campeonato.id(), volta.id(), new ResultadoRequest(2, 0, 5, 4, false));
         var outro = campeonato.fases().getFirst().confrontos().get(1);
-        service.registrarResultado(campeonato.id(), outro.partidas().getFirst().id(), placar(0, 0));
-        service.registrarResultado(campeonato.id(), outro.partidas().getLast().id(), placar(1, 0));
+        service.registrarResultado(campeonato.id(), partidas(campeonato.id(), outro).getFirst().id(), placar(0, 0));
+        service.registrarResultado(campeonato.id(), partidas(campeonato.id(), outro).getLast().id(), placar(1, 0));
         recarregar();
         var finalJogo = service.buscar(campeonato.id()).fases().getFirst().rodadas().getLast().partidas().getFirst();
         assertEquals(volta.mandante().id(), finalJogo.mandante().id());
@@ -97,8 +97,8 @@ class EliminatorioIdaVoltaServiceTests {
         var campeonato = iniciar(4, FormatoEliminatorio.IDA_E_VOLTA);
         var rodada = campeonato.fases().getFirst().rodadas().getFirst();
         var confronto = campeonato.fases().getFirst().confrontos().getFirst();
-        var ida = confronto.partidas().getFirst();
-        var volta = confronto.partidas().getLast();
+        var ida = partidas(campeonato.id(), confronto).getFirst();
+        var volta = partidas(campeonato.id(), confronto).getLast();
         service.registrarResultadosSemFinalizar(campeonato.id(), rodada.id(), List.of(
                 new ResultadoPartidaRequest(volta.id(), new ResultadoRequest(2, 0, 5, 4, false)),
                 new ResultadoPartidaRequest(ida.id(), placar(2, 0))));
@@ -107,8 +107,8 @@ class EliminatorioIdaVoltaServiceTests {
                 new ResultadoPartidaRequest(ida.id(), placar(3, 0)), new ResultadoPartidaRequest(volta.id(), placar(1, 0))));
         var outro = campeonato.fases().getFirst().confrontos().get(1);
         service.registrarResultadosSemFinalizar(campeonato.id(), rodada.id(), List.of(
-                new ResultadoPartidaRequest(outro.partidas().getFirst().id(), placar(1, 0)),
-                new ResultadoPartidaRequest(outro.partidas().getLast().id(), placar(0, 1))));
+                new ResultadoPartidaRequest(partidas(campeonato.id(), outro).getFirst().id(), placar(1, 0)),
+                new ResultadoPartidaRequest(partidas(campeonato.id(), outro).getLast().id(), placar(0, 1))));
         recarregar();
         var aberto = service.buscar(campeonato.id());
         assertEquals(RodadaStatus.EM_ANDAMENTO, aberto.fases().getFirst().rodadas().getFirst().status());
@@ -123,36 +123,36 @@ class EliminatorioIdaVoltaServiceTests {
     void correcaoConsideraVencedorAgregadoEPreservaPartidasPosteriores(FormatoEliminatorio formato) {
         var campeonato = iniciar(4, formato);
         for (var confronto : campeonato.fases().getFirst().confrontos().subList(0, 2)) {
-            service.registrarResultado(campeonato.id(), confronto.partidas().getFirst().id(), placar(3, 0));
-            service.registrarResultado(campeonato.id(), confronto.partidas().getLast().id(), placar(0, 4));
+            service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getFirst().id(), placar(3, 0));
+            service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getLast().id(), placar(0, 4));
         }
         recarregar();
         var salvo = service.buscar(campeonato.id());
         var semi = salvo.fases().getFirst().confrontos().getFirst();
         var finalJogo = salvo.fases().getFirst().rodadas().getLast().partidas().getFirst();
-        var trocado = service.registrarResultado(campeonato.id(), semi.partidas().getFirst().id(), placar(0, 8));
+        var trocado = service.registrarResultado(campeonato.id(), partidas(campeonato.id(), semi).getFirst().id(), placar(0, 8));
         var partidasFinais = trocado.fases().getFirst().rodadas().getLast().partidas();
-        assertEquals(semi.partidas().getFirst().visitante().id(), partidasFinais.getFirst().mandante().id());
+        assertEquals(partidas(campeonato.id(), semi).getFirst().visitante().id(), partidasFinais.getFirst().mandante().id());
         if (partidasFinais.size() == 2)
-            assertEquals(semi.partidas().getFirst().visitante().id(), partidasFinais.getLast().visitante().id());
-        service.registrarResultado(campeonato.id(), semi.partidas().getFirst().id(), placar(3, 0));
+            assertEquals(partidas(campeonato.id(), semi).getFirst().visitante().id(), partidasFinais.getLast().visitante().id());
+        service.registrarResultado(campeonato.id(), partidas(campeonato.id(), semi).getFirst().id(), placar(3, 0));
         service.registrarResultado(campeonato.id(), finalJogo.id(), placar(1, 0));
-        service.registrarResultado(campeonato.id(), semi.partidas().getFirst().id(), placar(0, 1));
+        service.registrarResultado(campeonato.id(), partidas(campeonato.id(), semi).getFirst().id(), placar(0, 1));
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(campeonato.id(),
-                semi.partidas().getLast().id(), placar(4, 0)));
+                partidas(campeonato.id(), semi).getLast().id(), placar(4, 0)));
     }
 
     @Test
     void finalEmIdaEVoltaPermiteCorrigirApenasOsPenaltis() {
         var campeonato = iniciar(4, FormatoEliminatorio.IDA_E_VOLTA);
         for (var confronto : campeonato.fases().getFirst().confrontos().subList(0, 2)) {
-            service.registrarResultado(campeonato.id(), confronto.partidas().getFirst().id(), placar(2, 0));
-            service.registrarResultado(campeonato.id(), confronto.partidas().getLast().id(), placar(0, 1));
+            service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getFirst().id(), placar(2, 0));
+            service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getLast().id(), placar(0, 1));
         }
         recarregar();
         var finalConfronto = service.buscar(campeonato.id()).fases().getFirst().confrontos().getLast();
-        var ida = finalConfronto.partidas().getFirst();
-        var volta = finalConfronto.partidas().getLast();
+        var ida = partidas(campeonato.id(), finalConfronto).getFirst();
+        var volta = partidas(campeonato.id(), finalConfronto).getLast();
         service.registrarResultado(campeonato.id(), ida.id(), placar(0, 0));
         service.registrarResultado(campeonato.id(), volta.id(), new ResultadoRequest(0, 0, 5, 4, false));
         assertEquals(volta.mandante().id(), service.vencedor(campeonato.id()).id());
@@ -160,9 +160,14 @@ class EliminatorioIdaVoltaServiceTests {
         recarregar();
         assertEquals(volta.visitante().id(), service.vencedor(campeonato.id()).id());
         assertEquals(CampeonatoStatus.FINALIZADO, service.buscar(campeonato.id()).status());
-        assertEquals(2, service.buscar(campeonato.id()).fases().getFirst().confrontos().getLast().partidas().size());
+        assertEquals(2, service.buscar(campeonato.id()).fases().getFirst().confrontos().getLast().partidaIds().size());
     }
 
+    private List<PartidaResponse> partidas(Long campeonatoId, ConfrontoResponse confronto) {
+        var todas = service.buscar(campeonatoId).fases().stream().flatMap(f -> f.rodadas().stream())
+                .flatMap(r -> r.partidas().stream()).collect(java.util.stream.Collectors.toMap(PartidaResponse::id, p -> p));
+        return confronto.partidaIds().stream().map(id -> Objects.requireNonNull(todas.get(id))).toList();
+    }
     private CampeonatoResponse iniciar(int quantidade, FormatoEliminatorio formato) {
         var org = organizacoes.criar(new OrganizacaoRequest("Copa ida e volta", true));
         List<ParticipanteRequest> participantes = new ArrayList<>();
