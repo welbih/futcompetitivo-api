@@ -13,14 +13,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
+import com.datadynecode.futcompetitivo.api.suporte.PostgresTestConfiguration;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
-    "spring.datasource.url=jdbc:h2:mem:login_dev;DB_CLOSE_DELAY=-1",
-    "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.username=sa", "spring.datasource.password=",
     "security.client-id=dev-test", "security.client-secret=dev-secret", "jwt.issuer=http://localhost:8080"
 })
 @ActiveProfiles("dev")
+@Import(PostgresTestConfiguration.class)
 class DevLoginTests {
     @Autowired Environment environment;
     @Autowired UsuarioRepository usuarios;

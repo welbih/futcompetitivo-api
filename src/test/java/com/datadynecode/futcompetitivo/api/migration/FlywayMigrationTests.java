@@ -31,6 +31,28 @@ class FlywayMigrationTests {
     @Autowired private ParticipanteService participantes;
     @Autowired private EntityManager entityManager;
     @Autowired private ConfrontoPessoalService confrontosPessoais;
+    @Autowired private JogadorEstatisticasService estatisticas;
+
+    @Test
+    @Transactional
+    void consultaEstatisticasNoPostgresSemDuplicarPartidas() {
+        var historico = new com.datadynecode.futcompetitivo.api.suporte.HistoricoJogadorFixture(entityManager);
+        historico.fase.setTipo(com.datadynecode.futcompetitivo.api.entity.TipoFase.ELIMINATORIA);
+        var confronto = new com.datadynecode.futcompetitivo.api.entity.Confronto();
+        confronto.setParticipanteUm(historico.um); confronto.setParticipanteDois(historico.dois);
+        confronto.setTipo(com.datadynecode.futcompetitivo.api.entity.TipoConfronto.IDA_E_VOLTA);
+        historico.fase.getConfrontos().add(confronto); entityManager.persist(confronto);
+        confronto.getPartidas().add(historico.campeonato(historico.dois, true, 4, 1));
+        confronto.getPartidas().add(historico.campeonato(historico.dois, false, 2, 3));
+        historico.x1(historico.tres, false, 2, 2);
+        entityManager.flush(); entityManager.clear();
+        var response = estatisticas.buscar(historico.jogador.getId(), OrigemPartida.TODOS);
+        assertEquals(new JogadorEstatisticasResponse.Resumo(3, 1, 1, 1, 8, 6, 2), response.resumo());
+        assertEquals("IDA", response.maioresGoleadasAplicadasPorGols().getFirst().idaOuVolta());
+        assertEquals("VOLTA", response.maioresGoleadasSofridasPorGols().getFirst().idaOuVolta());
+        assertEquals("SEMIFINAL", response.maioresGoleadasAplicadasPorGols().getFirst().fase().etapa().codigo());
+        assertEquals(1, estatisticas.buscar(historico.jogador.getId(), OrigemPartida.X1).resumo().partidasDisputadas());
+    }
 
     @Test
     @Transactional

@@ -1,0 +1,205 @@
+{
+  "origem": "https://futcompetitivo.datadynecode.com",
+  "jogadores": [
+    {
+      "id": 1,
+      "nome": "Osmar",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "nome": "Graciel",
+      "apelido": "Guerreiro",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "nome": "Luciano",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "nome": "Caliton",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "nome": "Mateus",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "nome": "Fábio",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 7,
+      "nome": "Wendel",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 8,
+      "nome": "Welber",
+      "apelido": "Sniper",
+      "ativo": true
+    },
+    {
+      "id": 9,
+      "nome": "Geilson",
+      "apelido": "ex Kirito",
+      "ativo": true
+    },
+    {
+      "id": 10,
+      "nome": "Kauã",
+      "apelido": "Monster",
+      "ativo": true
+    },
+    {
+      "id": 11,
+      "nome": "Aomine",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 12,
+      "nome": "Moisés",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 52,
+      "nome": "Rafael Santos",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 53,
+      "nome": "Jailson",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 54,
+      "nome": "Lucas",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 55,
+      "nome": "Zé Neto",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 102,
+      "nome": "Breno",
+      "apelido": "Nexos",
+      "ativo": true
+    },
+    {
+      "id": 103,
+      "nome": "Miguel",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 152,
+      "nome": "Josué",
+      "apelido": null,
+      "ativo": true
+    },
+    {
+      "id": 202,
+      "nome": "Carlos",
+      "apelido": "Carlão",
+      "ativo": true
+    },
+    {
+      "id": 203,
+      "nome": "Jack",
+      "apelido": null,
+      "ativo": true
+    }
+  ],
+  "equipes": [
+    {
+      "id": 1,
+      "nome": "Bayern de Munique",
+      "logoUrl": "https://logodetimes.com/times/bayern-munchen/bayern-munchen-1024.png",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "nome": "Real Madrid",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2016/03/real-madrid-logo-2-1.png",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "nome": "Barcelona",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2015/05/Barcelona-logo-escudo.png",
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "nome": "Manchester City",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2017/02/manchester-city-fc-logo-escudo-badge.png",
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "nome": "Atlético de Madrid",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2017/02/atletico-madrid-logo-4-1.png",
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "nome": "Chelsea",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2017/02/chelsea-fc-logo-escudo.png",
+      "ativo": true
+    },
+    {
+      "id": 7,
+      "nome": "PSG",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2017/02/psg-logo-escudo-paris-saint-germain.png",
+      "ativo": true
+    },
+    {
+      "id": 8,
+      "nome": "Arsenal",
+      "logoUrl": "https://raw.githubusercontent.com/luukhopman/football-logos/refs/heads/master/logos/England%20-%20Premier%20League/Arsenal%20FC.png",
+      "ativo": true
+    },
+    {
+      "id": 9,
+      "nome": "Milan",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2016/09/milan-logo-1.png",
+      "ativo": true
+    },
+    {
+      "id": 52,
+      "nome": "Manchester United",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2016/10/manchester-united-logo-0.png",
+      "ativo": true
+    },
+    {
+      "id": 53,
+      "nome": "Liverpool",
+      "logoUrl": "https://assets.football-logos.cc/logos/england/512x512/liverpool.bc7f4063.png",
+      "ativo": true
+    },
+    {
+      "id": 54,
+      "nome": "Inter de Milão",
+      "logoUrl": "https://logodownload.org/wp-content/uploads/2017/02/inter-milan-logo-0.png",
+      "ativo": true
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+-- Catalogo publico consultado em 2026-11-19: https://futcompetitivo.datadynecode.com/
+-- Apenas leitura da producao; estes INSERTs sao exclusivos do profile dev.
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (1, 'Osmar', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (2, 'Graciel', 'Guerreiro', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (3, 'Luciano', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (4, 'Caliton', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (5, 'Mateus', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (6, 'Fábio', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (7, 'Wendel', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (8, 'Welber', 'Sniper', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (9, 'Geilson', 'ex Kirito', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (10, 'Kauã', 'Monster', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (11, 'Aomine', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (12, 'Moisés', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (52, 'Rafael Santos', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (53, 'Jailson', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (54, 'Lucas', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (55, 'Zé Neto', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (102, 'Breno', 'Nexos', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (103, 'Miguel', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (152, 'Josué', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (202, 'Carlos', 'Carlão', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO jogador (id, nome, apelido, ativo) VALUES (203, 'Jack', NULL, TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (1, 'Bayern de Munique', 'https://logodetimes.com/times/bayern-munchen/bayern-munchen-1024.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (2, 'Real Madrid', 'https://logodownload.org/wp-content/uploads/2016/03/real-madrid-logo-2-1.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (3, 'Barcelona', 'https://logodownload.org/wp-content/uploads/2015/05/Barcelona-logo-escudo.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (4, 'Manchester City', 'https://logodownload.org/wp-content/uploads/2017/02/manchester-city-fc-logo-escudo-badge.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (5, 'Atlético de Madrid', 'https://logodownload.org/wp-content/uploads/2017/02/atletico-madrid-logo-4-1.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (6, 'Chelsea', 'https://logodownload.org/wp-content/uploads/2017/02/chelsea-fc-logo-escudo.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (7, 'PSG', 'https://logodownload.org/wp-content/uploads/2017/02/psg-logo-escudo-paris-saint-germain.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (8, 'Arsenal', 'https://raw.githubusercontent.com/luukhopman/football-logos/refs/heads/master/logos/England%20-%20Premier%20League/Arsenal%20FC.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (9, 'Milan', 'https://logodownload.org/wp-content/uploads/2016/09/milan-logo-1.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (52, 'Manchester United', 'https://logodownload.org/wp-content/uploads/2016/10/manchester-united-logo-0.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (53, 'Liverpool', 'https://assets.football-logos.cc/logos/england/512x512/liverpool.bc7f4063.png', TRUE) ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipe (id, nome, logo_url, ativo) VALUES (54, 'Inter de Milão', 'https://logodownload.org/wp-content/uploads/2017/02/inter-milan-logo-0.png', TRUE) ON CONFLICT (id) DO NOTHING;
+SELECT setval('jogador_seq', COALESCE((SELECT MAX(id) FROM jogador), 0) + 50, false);
+SELECT setval('equipe_seq', COALESCE((SELECT MAX(id) FROM equipe), 0) + 50, false);
