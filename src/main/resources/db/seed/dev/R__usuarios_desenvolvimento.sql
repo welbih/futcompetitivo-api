@@ -1,4 +1,5 @@
--- Exclusivo do profile dev. Senha dos dois usuarios: 123456 (hash BCrypt).
+-- Exclusivo do profile dev, executado pelo Flyway apos as migrations.
+-- Senha dos dois usuarios: 123456 (hash BCrypt).
 INSERT INTO roles (id, authority)
 SELECT nextval('roles_seq'), 'ROLE_ADMIN' WHERE NOT EXISTS (SELECT 1 FROM roles WHERE authority = 'ROLE_ADMIN');
 

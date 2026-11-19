@@ -33,7 +33,8 @@ class X1PartidasMigrationTests {
                         + "VALUES (1,1,1,1,2,'FINALIZADA',2,0),(2,1,2,2,1,'FINALIZADA',0,3)");
                 sql.execute("INSERT INTO partida_pessoal (id,confronto_id,numero,mandante_id,visitante_id,status) VALUES (3,1,3,1,2,'CANCELADA')");
             }
-            var flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration/postgresql").load();
+            var flyway = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration/postgresql")
+                    .target("9").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
             assertTrue(flyway.validateWithResult().validationSuccessful);
             try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {

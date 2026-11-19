@@ -31,6 +31,13 @@ Fluxo principal: `controller -> service -> repository -> banco de dados`.
 
 Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as classes de cada funcionalidade nesses pacotes conforme o dominio for implementado. A classe principal permanece no pacote raiz para permitir a descoberta automatica dos componentes pelo Spring.
 
+## Estatisticas individuais
+
+Endpoint publico: `GET /jogadores/{id}/estatisticas?origem=TODOS`, com filtros
+`CAMPEONATO`, `X1` ou `TODOS`. Inclui resumo geral, recordes de goleadas e
+adversarios com mais vitorias/derrotas, preservando todos os empates.
+Veja [contrato e exemplos JSON](docs/estatisticas-jogadores.md).
+
 ## Testes
 
 Mantenha os testes em `src/test/java/com/datadynecode/futcompetitivo/api`, espelhando os pacotes das classes testadas.
@@ -121,8 +128,9 @@ Consultas de organizacoes e imagens continuam abertas.
 ### Usuarios de desenvolvimento
 
 Com o profile `dev` (por `APP_PROFILE=dev` ou pelos Active profiles do IntelliJ),
-a API usa H2 em memoria. Apos criar as tabelas pelo Hibernate, executa os scripts
-`data-test.sql` e `src/main/resources/db/seed/dev.sql`, criando:
+a API usa o PostgreSQL do container `futcompetitivoDB`, porta local `5433`.
+O Flyway cria/atualiza o schema e executa os scripts exclusivos de desenvolvimento,
+incluindo o catalogo de jogadores/equipes e os usuarios:
 
 | Email | Senha | Role |
 | --- | --- | --- |
@@ -130,8 +138,9 @@ a API usa H2 em memoria. Apos criar as tabelas pelo Hibernate, executa os script
 | user@futcompetitivo.local | 123456 | ROLE_USER |
 
 O script salva as senhas em BCrypt e nao duplica usuarios ou roles existentes.
-Nao altera senhas de usuarios ja cadastrados. O banco H2 e recriado a cada
-inicializacao, incluindo os dois usuarios. O profile `prod` nao inclui esse script.
+Nao altera senhas de usuarios ja cadastrados. O banco fica salvo em volume Docker
+e nao e recriado a cada inicializacao. O profile `prod` nao inclui esses seeds.
+Veja [ambiente local e populacao dos formatos](docs/ambiente-desenvolvimento.md).
 
 O login segue o contrato do financeiro-api: `POST /oauth2/token`, Basic Auth
 com `CLIENT_ID`/`CLIENT_SECRET` e corpo `application/x-www-form-urlencoded`:
@@ -157,7 +166,7 @@ ou role. Se um Bearer for enviado, ele sera validado. As operacoes da propria
 sessao `POST /auth/logout` e `PUT /usuarios/senha` usam o Bearer para identificar
 a sessao/usuario. Logout revoga o token e usuarios inativos nao podem fazer login.
 
-No ambiente local (`APP_PROFILE=test`), as chaves RSA sao temporarias e as
+No ambiente local (`APP_PROFILE=dev` ou `test`), as chaves RSA sao temporarias e as
 Autorizacoes ficam em memoria. Defaults locais: client `futcompetitivo`, secret
 `desenvolvimento-local`, duracao de 3600 segundos. Em producao configure
 `CLIENT_ID`, `CLIENT_SECRET`, `JWT_ISSUER`, `JWT_JWK` (RSA privada, 2048 bits,

@@ -33,6 +33,7 @@ public class ResourceServerConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers(HttpMethod.GET, "/jogadores/{id}/estatisticas").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}",
                         "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
