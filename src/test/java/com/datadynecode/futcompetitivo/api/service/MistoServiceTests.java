@@ -31,22 +31,22 @@ class MistoServiceTests {
         var campeonato = service.iniciar(criado.id(), new IniciarCampeonatoRequest(
                 TipoFormato.MISTA, returno, null, null, classificados));
         recarregar();
-        campeonato = service.buscar(criado.id());
+        campeonato = solicitarAvanco(criado.id());
         assertEquals(1, campeonato.fases().size());
         assertEquals(classificados, campeonato.fases().getFirst().quantidadeClassificados());
         for (var rodada : campeonato.fases().getFirst().rodadas()) {
             if (rodada.numero().equals(campeonato.fases().getFirst().rodadas().getLast().numero())) {
                 for (var partida : rodada.partidas()) service.registrarResultadosSemFinalizar(criado.id(), rodada.id(),
                         List.of(new ResultadoPartidaRequest(partida.id(), placarLiga(partida))));
-                assertEquals(1, service.buscar(criado.id()).fases().size());
-                assertEquals(CampeonatoStatus.EM_ANDAMENTO, service.buscar(criado.id()).status());
+                assertEquals(1, solicitarAvanco(criado.id()).fases().size());
+                assertEquals(CampeonatoStatus.EM_ANDAMENTO, solicitarAvanco(criado.id()).status());
                 service.finalizarRodada(criado.id(), rodada.id());
             } else {
                 for (var partida : rodada.partidas()) service.registrarResultado(criado.id(), partida.id(), placarLiga(partida));
             }
         }
         recarregar();
-        campeonato = service.buscar(criado.id());
+        campeonato = solicitarAvanco(criado.id());
         assertEquals(2, campeonato.fases().size());
         assertEquals(CampeonatoStatus.EM_ANDAMENTO, campeonato.status());
         assertEquals(TipoFase.LIGA, campeonato.fases().getFirst().tipo());
@@ -81,7 +81,7 @@ class MistoServiceTests {
                 jogosMataMata++;
             }
             recarregar();
-            campeonato = service.buscar(criado.id());
+            campeonato = solicitarAvanco(criado.id());
         }
         assertEquals(classificados - 1, jogosMataMata);
         assertEquals(historico, campeonato.classificacaoPorRodada());
@@ -95,7 +95,7 @@ class MistoServiceTests {
         for (Integer quantidade : Arrays.asList(null, 0, 1, 2, 3, 5)) {
             assertThrows(RegraCampeonatoException.class, () -> service.iniciar(campeonato.id(),
                     new IniciarCampeonatoRequest(TipoFormato.MISTA, false, null, null, quantidade)));
-            assertEquals(CampeonatoStatus.CRIADO, service.buscar(campeonato.id()).status());
+            assertEquals(CampeonatoStatus.CRIADO, solicitarAvanco(campeonato.id()).status());
         }
     }
 
@@ -106,7 +106,7 @@ class MistoServiceTests {
         for (var rodada : campeonato.fases().getFirst().rodadas())
             for (var partida : rodada.partidas()) service.registrarResultado(criado.id(), partida.id(), placarLiga(partida));
         recarregar();
-        var salvo = service.buscar(criado.id());
+        var salvo = solicitarAvanco(criado.id());
         var liga = salvo.fases().getFirst();
         var mataMata = salvo.fases().getLast();
         var partidaLiga = liga.rodadas().getLast().partidas().getFirst();
@@ -120,7 +120,7 @@ class MistoServiceTests {
         service.registrarResultado(criado.id(), jogo.id(), new ResultadoRequest(1, 0, null, null, false));
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(criado.id(), partidaLiga.id(),
                 new ResultadoRequest(3, 0, null, null, false)));
-        assertEquals(novoPlacar, service.buscar(criado.id()).fases().getFirst().rodadas().getLast().partidas().getFirst().resultado());
+        assertEquals(novoPlacar, solicitarAvanco(criado.id()).fases().getFirst().rodadas().getLast().partidas().getFirst().resultado());
     }
 
     private ResultadoRequest placarLiga(PartidaResponse partida) {
@@ -140,4 +140,8 @@ class MistoServiceTests {
     }
 
     private void recarregar() { em.flush(); em.clear(); }
+    // A simulacao solicita o avanco explicitamente antes de consultar a proxima etapa.
+    private CampeonatoResponse solicitarAvanco(Long id) {
+        return com.datadynecode.futcompetitivo.api.suporte.AvancoEliminatorio.solicitar(service, id);
+    }
 }

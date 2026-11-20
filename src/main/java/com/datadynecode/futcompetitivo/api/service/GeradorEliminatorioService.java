@@ -1,6 +1,7 @@
 package com.datadynecode.futcompetitivo.api.service;
 
 import com.datadynecode.futcompetitivo.api.entity.*;
+import com.datadynecode.futcompetitivo.api.dto.ConfrontoInicialRequest;
 import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import java.util.*;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,10 @@ public class GeradorEliminatorioService {
     private final ConfrontoService confrontos;
 
     public void gerar(Fase fase, List<Participante> participantes) {
+        gerar(fase, participantes, null);
+    }
+
+    public void gerar(Fase fase, List<Participante> participantes, List<ConfrontoInicialRequest> primeiraRodada) {
         if (participantes.size() < 4)
             throw new RegraCampeonatoException("Eliminatório precisa de pelo menos 4 participantes.");
         int tamanho = Integer.highestOneBit(participantes.size() - 1) << 1;
@@ -48,13 +53,46 @@ public class GeradorEliminatorioService {
             Confronto finalConfronto = fase.getConfrontos().getLast();
             Confronto terceiro = new Confronto();
             terceiro.setTerceiroLugar(true);
-            terceiro.setTipo(fase.getFormatoEliminatorio() == FormatoEliminatorio.JOGO_UNICO
+            terceiro.setTipo(fase.getFormatoEliminatorio() != FormatoEliminatorio.IDA_E_VOLTA
                     ? TipoConfronto.JOGO_UNICO : TipoConfronto.IDA_E_VOLTA);
             terceiro.setOrigemUm(finalConfronto.getOrigemUm());
             terceiro.setOrigemDois(finalConfronto.getOrigemDois());
             fase.getConfrontos().add(fase.getConfrontos().size() - 1, terceiro);
         }
-        atualizarParticipantes(fase, participantes);
+        if (fase.getFormaGeracaoMataMata() == null) fase.setFormaGeracaoMataMata(FormaGeracaoMataMata.AUTOMATICA);
+        if (primeiraRodada == null) {
+            var ordem = new ArrayList<>(participantes);
+            if (fase.getFormaGeracaoMataMata() == FormaGeracaoMataMata.ALEATORIA) Collections.shuffle(ordem);
+            atualizarParticipantes(fase, ordem);
+        }
+        else {
+            definirConfrontosManuais(fase, participantes, primeiraRodada, tamanho / 2);
+            fase.setConfrontosManuais(true);
+            prepararRodada(fase, fase.getRodadas().getFirst());
+        }
+    }
+
+    private void definirConfrontosManuais(Fase fase, List<Participante> participantes,
+            List<ConfrontoInicialRequest> primeiraRodada, int quantidade) {
+        if (primeiraRodada.size() != quantidade)
+            throw new RegraCampeonatoException("Informe todos os confrontos da primeira rodada, incluindo folgas: " + quantidade + ".");
+        Map<Long, Participante> porId = new HashMap<>();
+        participantes.forEach(p -> porId.put(p.getId(), p));
+        Set<Long> usados = new HashSet<>();
+        for (int i = 0; i < primeiraRodada.size(); i++) {
+            var par = primeiraRodada.get(i);
+            if (par == null || (par.mandanteId() == null && par.visitanteId() == null))
+                throw new RegraCampeonatoException("Cada confronto deve conter pelo menos um participante.");
+            for (Long id : Arrays.asList(par.mandanteId(), par.visitanteId())) {
+                if (id != null && (!porId.containsKey(id) || !usados.add(id)))
+                    throw new RegraCampeonatoException("Informe apenas participantes elegíveis, sem repetição nos confrontos.");
+            }
+            var confronto = fase.getConfrontos().get(i);
+            confronto.setParticipanteUm(porId.get(par.mandanteId()));
+            confronto.setParticipanteDois(porId.get(par.visitanteId()));
+        }
+        if (!usados.equals(porId.keySet()))
+            throw new RegraCampeonatoException("Todos os participantes elegíveis devem aparecer uma única vez na primeira rodada.");
     }
 
     public void atualizarParticipantes(Fase fase, List<Participante> classificados) {
@@ -79,6 +117,10 @@ public class GeradorEliminatorioService {
     }
 
     public void prepararRodada(Fase fase, Rodada rodada) {
+        prepararRodada(fase, rodada, Set.of());
+    }
+
+    public void prepararRodada(Fase fase, Rodada rodada, Set<Long> desistentes) {
         int quantidade = 1 << (fase.getTotalRodadas() - rodada.getNumero());
         int inicio = (1 << fase.getTotalRodadas()) - 2 * quantidade;
         List<Confronto> chave = fase.getConfrontos().stream().filter(c -> !c.isTerceiroLugar()).toList();
@@ -87,13 +129,13 @@ public class GeradorEliminatorioService {
             fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).forEach(etapa::add);
         for (Confronto confronto : etapa) {
             if (confronto.getOrigemUm() != null)
-                confronto.setParticipanteUm(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemUm())
-                        : confrontos.vencedor(confronto.getOrigemUm()));
+                confronto.setParticipanteUm(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemUm(), desistentes)
+                        : confrontos.vencedor(confronto.getOrigemUm(), desistentes));
             if (confronto.getOrigemDois() != null)
-                confronto.setParticipanteDois(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemDois())
-                        : confrontos.vencedor(confronto.getOrigemDois()));
+                confronto.setParticipanteDois(confronto.isTerceiroLugar() ? confrontos.perdedor(confronto.getOrigemDois(), desistentes)
+                        : confrontos.vencedor(confronto.getOrigemDois(), desistentes));
             if (confronto.getPartidas().isEmpty()) {
-                confrontos.gerarPartidas(confronto);
+                confrontos.gerarPartidas(confronto, desistentes);
                 rodada.getPartidas().addAll(confronto.getPartidas());
             } else {
                 for (int i = 0; i < confronto.getPartidas().size(); i++) {
@@ -109,6 +151,14 @@ public class GeradorEliminatorioService {
 
     public Participante campeao(Fase fase) {
         return confrontos.vencedor(fase.getConfrontos().getLast());
+    }
+
+    public Participante campeao(Fase fase, Set<Long> desistentes) {
+        return confrontos.vencedor(fase.getConfrontos().getLast(), desistentes);
+    }
+
+    public Participante terceiroColocado(Fase fase, Set<Long> desistentes) {
+        return confrontos.vencedor(fase.getConfrontos().stream().filter(Confronto::isTerceiroLugar).findFirst().orElseThrow(), desistentes);
     }
 
     public Participante terceiroColocado(Fase fase) {

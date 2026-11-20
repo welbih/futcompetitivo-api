@@ -16,7 +16,8 @@ public class GeradorRodadaSwissService {
 
         List<Participante> ordem = classificacao == null ? new ArrayList<>(participantes)
                 : new ArrayList<>(classificacao.getTabela().stream()
-                        .map(ClassificacaoParticipante::getParticipante).toList());
+                        .map(ClassificacaoParticipante::getParticipante).filter(participantes::contains).toList());
+        if (ordem.size() < 2) throw new RegraCampeonatoException("Swiss precisa de pelo menos dois participantes elegíveis.");
         Rodada rodada = new Rodada(fase.getRodadas().size() + 1);
         rodada.setStatus(RodadaStatus.EM_ANDAMENTO);
         Map<String, Partida> anteriores = new HashMap<>();

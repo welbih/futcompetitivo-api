@@ -17,7 +17,12 @@ public class CampeonatoMapper {
                 campeonato.getStatus(), campeonato.getParticipantes().stream()
                         .map(participanteMapper::toResponse).toList(),
                 campeonato.getFases().stream().map(this::toResponse).toList(),
-                campeonato.getClassificacaoPorRodada().stream().map(this::toResponse).toList());
+                campeonato.getClassificacaoPorRodada().stream().map(this::toResponse).toList(),
+                campeonato.getParticipantesDesistentes().stream().sorted().toList(),
+                campeonato.getStatus() == CampeonatoStatus.EM_ANDAMENTO && campeonato.getFases().size() == 1
+                    && campeonato.getFases().getFirst().getQuantidadeClassificados() != null
+                    && campeonato.getFases().getFirst().getRodadas().stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA),
+                new java.util.TreeMap<>(campeonato.getSubstituicoesMataMata()));
     }
 
     public FaseResponse toResponse(Fase fase) {
@@ -42,12 +47,12 @@ public class CampeonatoMapper {
             return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(), rodadas, confrontos,
                     fase.getQuantidadeClassificados(), fase.getGrupos().stream().map(this::toResponse).toList(),
                     fase.getFormatoEliminatorio() == null ? FormatoEliminatorio.JOGO_UNICO : fase.getFormatoEliminatorio(),
-                    fase.isDisputaTerceiroLugar());
+                    fase.isDisputaTerceiroLugar(), fase.getFormaGeracaoMataMata());
         }
         return new FaseResponse(fase.getId(), fase.getOrdem(), fase.getTipo(),
                 fase.getRodadas().stream().map(this::toResponse).toList(),
                 fase.getConfrontos().stream().map(this::toResponse).toList(), fase.getQuantidadeClassificados(),
-                fase.getGrupos().stream().map(this::toResponse).toList(), fase.getFormatoEliminatorio(), fase.isDisputaTerceiroLugar());
+                fase.getGrupos().stream().map(this::toResponse).toList(), fase.getFormatoEliminatorio(), fase.isDisputaTerceiroLugar(), fase.getFormaGeracaoMataMata());
     }
 
     public GrupoResponse toResponse(Grupo grupo) {
@@ -72,7 +77,7 @@ public class CampeonatoMapper {
                 participanteMapper.toResponse(partida.getVisitante()), partida.getStatus(),
                 resultado == null ? null : new ResultadoRequest(resultado.getGolsMandante(),
                         resultado.getGolsVisitante(), resultado.getPenaltisMandante(),
-                        resultado.getPenaltisVisitante(), resultado.isGolDeOuro()), partida.getYoutubeUrl());
+                        resultado.getPenaltisVisitante(), resultado.isGolDeOuro()), partida.getYoutubeUrl(), partida.isWo());
     }
 
     public ConfrontoResponse toResponse(Confronto confronto) {

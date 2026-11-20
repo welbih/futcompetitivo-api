@@ -83,6 +83,16 @@ function Complete-CampeonatoDev([long]$Id, [bool]$Finalizar) {
         if (-not $Finalizar -and $jogadas -ge 2) { return $campeonato }
         $faseAtiva = $campeonato.fases | Where-Object { @($_.rodadas | Where-Object { $_.status -eq 'EM_ANDAMENTO' }).Count -gt 0 } | Select-Object -First 1
         if ($null -eq $faseAtiva) {
+            if ($campeonato.aguardandoMataMata) {
+                $null = Invoke-ApiDev POST "/campeonatos/$Id/mata-mata"
+                continue
+            }
+            if ($campeonato.fases[-1].tipo -eq 'ELIMINATORIA') {
+                $pendente = $campeonato.fases[-1].rodadas | Where-Object { $_.status -eq 'PENDENTE' } | Select-Object -First 1
+                if ($null -eq $pendente) { throw "Campeonato $Id sem rodada pendente para solicitar." }
+                $null = Invoke-ApiDev POST "/campeonatos/$Id/rodadas/$($pendente.id)/iniciar"
+                continue
+            }
             if ($campeonato.fases[-1].tipo -ne 'SWISS') { throw "Campeonato $Id sem rodada ativa." }
             $null = Invoke-ApiDev POST "/campeonatos/$Id/rodadas/swiss"
             continue

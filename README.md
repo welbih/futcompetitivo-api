@@ -31,6 +31,34 @@ Fluxo principal: `controller -> service -> repository -> banco de dados`.
 
 Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as classes de cada funcionalidade nesses pacotes conforme o dominio for implementado. A classe principal permanece no pacote raiz para permitir a descoberta automatica dos componentes pelo Spring.
 
+## Avanco e desistencias
+
+O inicio do mata-mata apos grupos/liga exige solicitacao explicita de `ADMIN`.
+Depois disso, as rodadas eliminatorias avancam automaticamente. Desistencias
+em qualquer fase aplicam W.O. de 3x0 nos jogos pendentes; dois
+desistentes empatam em 0x0. Vagas de classificados desistentes sao preenchidas por
+escolha manual do admin. Veja [rotas, payloads e regras](docs/mata-mata-desistencias.md).
+
+## Confrontos definidos pelo admin
+
+Os formatos com mata-mata aceitam `formaGeracaoMataMata: AUTOMATICA` ou
+`ALEATORIA`, mantendo a prioridade dos confrontos manuais do admin.
+Veja [configuracao, padroes e exemplos](docs/geracao-mata-mata.md).
+
+O admin tambem pode definir a primeira rodada do mata-mata, incluindo mando e
+folgas, no eliminatorio puro ou apos grupos/liga. Veja
+[confrontos manuais, payloads e validacoes](docs/confrontos-manuais.md).
+
+## Grupos definidos pelo admin
+
+O formato `GRUPOS` aceita `quantidadeGrupos` (padrao 2), com pelo menos tres
+participantes por grupo. A composicao manual tambem aceita varios grupos.
+Veja [configuracao e criterios de classificacao](docs/quantidade-grupos.md).
+
+`POST /campeonatos/{id}/iniciar/grupos` permite a um `ADMIN` definir manualmente
+os grupos A e B de um campeonato ainda nao iniciado, preservando a composicao e
+gerando a agenda sem registrar resultados. Veja [payload e regras](docs/grupos-manuais.md).
+
 ## Estatisticas individuais
 
 Endpoint publico: `GET /jogadores/{id}/estatisticas?origem=TODOS`, com filtros

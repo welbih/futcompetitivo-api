@@ -35,6 +35,39 @@ class FlywayMigrationTests {
 
     @Test
     @Transactional
+    void persisteDesistenciaESubstituicaoManualNoPostgres() {
+        var organizacao = organizacoes.criar(new OrganizacaoRequest("Substituicoes PG",true));
+        var participantes = new ArrayList<ParticipanteRequest>();
+        for(int i=0;i<6;i++) {
+            var jogador = jogadores.criar(new JogadorRequest("Jogador PG " + i,null));
+            var equipe = equipes.criar(new EquipeRequest("Equipe PG " + i,"https://example.com/logo.png"));
+            participantes.add(new ParticipanteRequest(jogador.id(),equipe.id()));
+        }
+        var criado = campeonatos.criar(new CampeonatoRequest(organizacao.id(),2026,participantes));
+        var iniciado = campeonatos.iniciar(criado.id(),new IniciarCampeonatoRequest(TipoFormato.MISTA,false,null,null,4,null,false,
+                com.datadynecode.futcompetitivo.api.entity.FormaGeracaoMataMata.ALEATORIA));
+        for(var rodada:iniciado.fases().getFirst().rodadas()) for(var p:rodada.partidas())
+            campeonatos.registrarResultado(criado.id(),p.id(),new ResultadoRequest(1,0,null,null,false));
+        var lider = campeonatos.classificacao(criado.id()).tabela().getFirst().participante().id();
+        campeonatos.desistirParticipante(criado.id(),lider);
+        var escolhido = campeonatos.vagasMataMata(criado.id()).getFirst().candidatos().getLast().id();
+        var classificados = campeonatos.classificados(criado.id(),4).stream()
+                .map(p -> p.id().equals(lider) ? escolhido : p.id()).toList();
+        campeonatos.iniciarMataMata(criado.id(),new IniciarMataMataRequest(
+                List.of(new IniciarMataMataRequest.Substituicao(lider,escolhido)),
+                List.of(new ConfrontoInicialRequest(classificados.get(2),classificados.get(0)),
+                        new ConfrontoInicialRequest(classificados.get(1),classificados.get(3)))));
+        entityManager.flush(); entityManager.clear();
+        var salvo = campeonatos.buscar(criado.id());
+        assertEquals(List.of(lider),salvo.participantesDesistentes());
+        assertEquals(escolhido,salvo.substituicoesMataMata().get(lider));
+        assertTrue(entityManager.find(com.datadynecode.futcompetitivo.api.entity.Fase.class,salvo.fases().getLast().id()).isConfrontosManuais());
+        assertEquals(com.datadynecode.futcompetitivo.api.entity.FormaGeracaoMataMata.ALEATORIA,salvo.fases().getLast().formaGeracaoMataMata());
+        assertEquals(classificados.get(2),salvo.fases().getLast().rodadas().getFirst().partidas().getFirst().mandante().id());
+    }
+
+    @Test
+    @Transactional
     void consultaEstatisticasNoPostgresSemDuplicarPartidas() {
         var historico = new com.datadynecode.futcompetitivo.api.suporte.HistoricoJogadorFixture(entityManager);
         historico.fase.setTipo(com.datadynecode.futcompetitivo.api.entity.TipoFase.ELIMINATORIA);
@@ -78,7 +111,7 @@ class FlywayMigrationTests {
 
     @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
-        assertEquals(12, flyway.info().applied().length);
+        assertEquals(15, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);

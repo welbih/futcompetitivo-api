@@ -1,6 +1,7 @@
 package com.datadynecode.futcompetitivo.api.service;
 
 import com.datadynecode.futcompetitivo.api.dto.IniciarCampeonatoRequest;
+import com.datadynecode.futcompetitivo.api.dto.IniciarGruposManuaisRequest;
 import com.datadynecode.futcompetitivo.api.entity.*;
 import com.datadynecode.futcompetitivo.api.exception.RegraCampeonatoException;
 import java.util.*;
@@ -12,16 +13,62 @@ import lombok.RequiredArgsConstructor;
 public class GeradorFasesService {
     private final GeradorEliminatorioService eliminatorio;
 
-    public Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request) {
-        exigir(request.formatoEliminatorio() == null || request.formato() == TipoFormato.ELIMINATORIO,
-                "formatoEliminatorio é permitido apenas no formato ELIMINATORIO.");
+    public Fase gerarGruposManuais(List<Participante> participantes, IniciarGruposManuaisRequest request) {
+        List<List<Long>> grupos = request.grupos();
+        if (grupos == null) {
+            exigir(request.grupoA() != null && request.grupoB() != null, "Informe grupos ou os campos grupoA e grupoB.");
+            grupos = List.of(request.grupoA(),request.grupoB());
+        } else exigir(request.grupoA() == null && request.grupoB() == null, "Não combine grupos com grupoA/grupoB.");
+        exigir(grupos.size() >= 2 && grupos.stream().allMatch(g -> g != null && g.size() >= 3),
+                "Informe pelo menos dois grupos, cada um com no mínimo três participantes.");
+        List<Long> ids = grupos.stream().flatMap(List::stream).toList();
+        exigir(ids.stream().allMatch(id -> id != null && id > 0), "Informe IDs de participantes válidos.");
+        exigir(new HashSet<>(ids).size() == ids.size(), "Um participante não pode aparecer mais de uma vez nos grupos.");
+        Map<Long, Participante> porId = new HashMap<>();
+        participantes.forEach(p -> porId.put(p.getId(), p));
+        exigir(new HashSet<>(ids).equals(porId.keySet()),
+                "Os grupos devem conter todos os participantes do campeonato, sem incluir participantes de outros campeonatos.");
+        Integer classificados = request.quantidadeClassificados();
+        exigir(classificados != null && classificados >= 4 && classificados <= participantes.size(),
+                "A quantidade de classificados deve ser de pelo menos quatro e não pode exceder o total de participantes.");
+        int porGrupo = classificados / grupos.size();
+        exigir(grupos.stream().allMatch(g -> g.size() >= porGrupo),
+                "Cada grupo deve ter participantes suficientes para a quantidade de classificados informada.");
         Fase fase = new Fase();
         fase.setOrdem(1);
+        fase.setTipo(TipoFase.GRUPOS);
+        fase.setQuantidadeClassificados(classificados);
+        fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
+        fase.setDisputaTerceiroLugar(Boolean.TRUE.equals(request.disputaTerceiroLugar()));
+        fase.setFormatoEliminatorio(request.formatoEliminatorio());
+        fase.setFormaGeracaoMataMata(request.formaGeracaoMataMata() == null
+                ? FormaGeracaoMataMata.AUTOMATICA : request.formaGeracaoMataMata());
+        gerarAgendaGrupos(fase, grupos.stream().map(g -> g.stream().map(porId::get).toList()).toList());
+        fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
+        return fase;
+    }
+
+    public Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request) {
+        exigir(request.formatoEliminatorio() == null || request.formato() == TipoFormato.ELIMINATORIO
+                        || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.GRUPOS,
+                "formatoEliminatorio exige um formato com mata-mata.");
+        Fase fase = new Fase();
+        fase.setOrdem(1);
+        exigir(request.quantidadeGrupos() == null || request.formato() == TipoFormato.GRUPOS,
+                "quantidadeGrupos é permitido apenas no formato GRUPOS.");
         exigir(!Boolean.TRUE.equals(request.disputaTerceiroLugar())
                         || request.formato() == TipoFormato.ELIMINATORIO || request.formato() == TipoFormato.MISTA
                         || request.formato() == TipoFormato.GRUPOS,
                 "Disputa de terceiro lugar exige um formato com mata-mata.");
         fase.setDisputaTerceiroLugar(Boolean.TRUE.equals(request.disputaTerceiroLugar()));
+        fase.setFormatoEliminatorio(request.formatoEliminatorio());
+        boolean temMataMata = request.formato() == TipoFormato.ELIMINATORIO
+                || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.GRUPOS;
+        exigir(request.formaGeracaoMataMata() == null || temMataMata,
+                "formaGeracaoMataMata exige um formato com mata-mata.");
+        if (temMataMata) fase.setFormaGeracaoMataMata(request.formaGeracaoMataMata() != null
+                ? request.formaGeracaoMataMata() : request.formato() == TipoFormato.ELIMINATORIO
+                        ? FormaGeracaoMataMata.ALEATORIA : FormaGeracaoMataMata.AUTOMATICA);
         switch (request.formato()) {
             case LIGA -> {
                 exigir(participantes.size() >= 3, "Liga precisa de pelo menos 3 participantes.");
@@ -65,7 +112,9 @@ public class GeradorFasesService {
                 gerarLiga(fase, participantes);
             }
             case GRUPOS -> {
-                exigir(participantes.size() >= 4, "A fase de grupos deve ter no mínimo 4 participantes.");
+                int quantidadeGrupos = request.quantidadeGrupos() == null ? 2 : request.quantidadeGrupos();
+                exigir(quantidadeGrupos >= 2 && participantes.size() / quantidadeGrupos >= 3,
+                        "Cada grupo deve ter no mínimo três participantes; reduza a quantidade de grupos.");
                 Integer classificados = request.quantidadeClassificados();
                 exigir(classificados != null && classificados >= 4,
                         "O mata-mata deve ter no mínimo 4 classificados.");
@@ -74,7 +123,7 @@ public class GeradorFasesService {
                 fase.setTipo(TipoFase.GRUPOS);
                 fase.setQuantidadeClassificados(classificados);
                 fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
-                gerarGrupos(fase, participantes);
+                gerarGrupos(fase, participantes, quantidadeGrupos);
             }
         }
         if (!fase.getRodadas().isEmpty())
@@ -113,12 +162,24 @@ public class GeradorFasesService {
         }
     }
 
-    private void gerarGrupos(Fase fase, List<Participante> participantes) {
-        for (int indiceGrupo = 0; indiceGrupo < 2; indiceGrupo++) {
+    private void gerarGrupos(Fase fase, List<Participante> participantes, int quantidade) {
+        List<List<Participante>> composicoes = new ArrayList<>();
+        for (int i=0;i<quantidade;i++) composicoes.add(new ArrayList<>());
+        for (int i = 0; i < participantes.size(); i++) composicoes.get(i % quantidade).add(participantes.get(i));
+        gerarAgendaGrupos(fase, composicoes);
+    }
+
+    private String nomeGrupo(int indice) {
+        StringBuilder nome = new StringBuilder();
+        for (int valor=indice+1;valor>0;valor=(valor-1)/26) nome.insert(0,(char)('A'+(valor-1)%26));
+        return nome.toString();
+    }
+
+    private void gerarAgendaGrupos(Fase fase, List<List<Participante>> composicoes) {
+        for (int indiceGrupo = 0; indiceGrupo < composicoes.size(); indiceGrupo++) {
             Grupo grupo = new Grupo();
-            grupo.setNome(indiceGrupo == 0 ? "Grupo A" : "Grupo B");
-            for (int i = indiceGrupo; i < participantes.size(); i += 2)
-                grupo.getParticipantes().add(participantes.get(i));
+            grupo.setNome("Grupo " + nomeGrupo(indiceGrupo));
+            grupo.getParticipantes().addAll(composicoes.get(indiceGrupo));
             fase.getGrupos().add(grupo);
             Fase agendaGrupo = new Fase();
             agendaGrupo.setTurnoEreturno(fase.isTurnoEreturno());

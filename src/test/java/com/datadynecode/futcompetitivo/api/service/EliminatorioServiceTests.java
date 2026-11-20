@@ -61,7 +61,7 @@ class EliminatorioServiceTests {
                 disputadas++;
             }
             recarregar();
-            campeonato = service.buscar(id);
+            campeonato = solicitarAvanco(id);
             assertNotNull(campeonato.fases().getFirst().rodadas().getFirst().etapa());
             assertTrue(campeonato.fases().getFirst().confrontos().stream()
                     .allMatch(c -> c.partidaIds().size() <= 1));
@@ -86,8 +86,9 @@ class EliminatorioServiceTests {
         service.registrarResultadosSemFinalizar(campeonato.id(), preliminar.id(),
                 List.of(new ResultadoPartidaRequest(partida.id(), new ResultadoRequest(1, 0, null, null, false))));
         recarregar();
-        assertEquals(RodadaStatus.EM_ANDAMENTO, service.buscar(campeonato.id()).fases().getFirst().rodadas().getFirst().status());
-        var aberto = service.finalizarRodada(campeonato.id(), preliminar.id());
+        assertEquals(RodadaStatus.EM_ANDAMENTO, solicitarAvanco(campeonato.id()).fases().getFirst().rodadas().getFirst().status());
+        service.finalizarRodada(campeonato.id(), preliminar.id());
+        var aberto = solicitarAvanco(campeonato.id());
         assertEquals(RodadaStatus.EM_ANDAMENTO, aberto.fases().getFirst().rodadas().get(1).status());
         var corrigido = service.registrarResultado(campeonato.id(), partida.id(), new ResultadoRequest(0, 1, null, null, false));
         var semi = corrigido.fases().getFirst().rodadas().get(1);
@@ -100,7 +101,7 @@ class EliminatorioServiceTests {
                 new ResultadoRequest(1, 0, null, null, false)));
         service.registrarResultado(campeonato.id(), partida.id(), new ResultadoRequest(0, 2, null, null, false));
         recarregar();
-        assertEquals(2, service.buscar(campeonato.id()).fases().getFirst().rodadas().getFirst().partidas().getFirst().resultado().golsVisitante());
+        assertEquals(2, solicitarAvanco(campeonato.id()).fases().getFirst().rodadas().getFirst().partidas().getFirst().resultado().golsVisitante());
     }
 
     @Test
@@ -109,13 +110,13 @@ class EliminatorioServiceTests {
         var semi = campeonato.fases().getFirst().rodadas().getFirst();
         for (var partida : semi.partidas()) service.registrarResultado(campeonato.id(), partida.id(),
                 new ResultadoRequest(1, 0, null, null, false));
-        var finalJogo = service.buscar(campeonato.id()).fases().getFirst().rodadas().getLast().partidas().getFirst();
+        var finalJogo = solicitarAvanco(campeonato.id()).fases().getFirst().rodadas().getLast().partidas().getFirst();
         service.registrarResultado(campeonato.id(), finalJogo.id(), new ResultadoRequest(0, 0, 4, 3, false));
         assertEquals(finalJogo.mandante().id(), service.vencedor(campeonato.id()).id());
         service.registrarResultado(campeonato.id(), finalJogo.id(), new ResultadoRequest(0, 0, 3, 4, false));
         recarregar();
         assertEquals(finalJogo.visitante().id(), service.vencedor(campeonato.id()).id());
-        assertEquals(CampeonatoStatus.FINALIZADO, service.buscar(campeonato.id()).status());
+        assertEquals(CampeonatoStatus.FINALIZADO, solicitarAvanco(campeonato.id()).status());
     }
 
     private CampeonatoResponse iniciar(int quantidade) {
@@ -129,8 +130,12 @@ class EliminatorioServiceTests {
         var criado = service.criar(new CampeonatoRequest(org.id(), 2026, participantes));
         var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(TipoFormato.ELIMINATORIO, false, null, null));
         recarregar();
-        return service.buscar(iniciado.id());
+        return solicitarAvanco(iniciado.id());
     }
 
     private void recarregar() { em.flush(); em.clear(); }
+    // A simulacao solicita o avanco explicitamente antes de consultar a proxima etapa.
+    private CampeonatoResponse solicitarAvanco(Long id) {
+        return com.datadynecode.futcompetitivo.api.suporte.AvancoEliminatorio.solicitar(service, id);
+    }
 }

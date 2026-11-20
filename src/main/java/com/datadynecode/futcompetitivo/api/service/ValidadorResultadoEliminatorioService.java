@@ -16,6 +16,7 @@ public class ValidadorResultadoEliminatorioService {
         if (fase.getTipo() != TipoFase.ELIMINATORIA) return;
         for (Confronto confronto : fase.getConfrontos()) {
             if (confronto.getPartidas().stream().noneMatch(p -> novosResultados.containsKey(p.getId()))) continue;
+            if (confronto.getPartidas().stream().anyMatch(Partida::isWo)) continue;
             Participante novoVencedor = validar(confronto, novosResultados);
             if (novoVencedor != null && confronto.getPartidas().stream().allMatch(Partida::isFinalizada)
                     && !confrontos.vencedor(confronto).getId().equals(novoVencedor.getId())) {

@@ -38,6 +38,12 @@ public class ResourceServerConfig {
                         "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/organizacoes").authenticated()
+                .requestMatchers(HttpMethod.POST, "/campeonatos/{id}/iniciar/grupos",
+                        "/campeonatos/{id}/iniciar/eliminatorio/manual").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/campeonatos/{id}/mata-mata",
+                        "/campeonatos/{id}/rodadas/{rodadaId}/iniciar",
+                        "/campeonatos/{id}/participantes/{participanteId}/desistir").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/campeonatos/{id}/mata-mata/vagas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/jogadores/{id}/ativar", "/equipes/{id}/ativar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/jogadores/{id}", "/equipes/{id}").authenticated()
                 .anyRequest().permitAll())

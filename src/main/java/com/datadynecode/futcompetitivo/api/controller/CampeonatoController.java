@@ -46,9 +46,42 @@ public class CampeonatoController {
         return service.iniciar(id, request);
     }
 
+    @PostMapping("/{id}/iniciar/grupos")
+    public CampeonatoResponse iniciarComGruposManuais(@PathVariable Long id,
+            @Valid @RequestBody IniciarGruposManuaisRequest request) {
+        return service.iniciarComGruposManuais(id, request);
+    }
+
+    @PostMapping("/{id}/iniciar/eliminatorio/manual")
+    public CampeonatoResponse iniciarEliminatorioManual(@PathVariable Long id,
+            @Valid @RequestBody IniciarEliminatorioManualRequest request) {
+        return service.iniciarEliminatorioManual(id, request);
+    }
+
     @PostMapping("/{id}/rodadas/swiss")
     public RodadaResponse proximaRodadaSwiss(@PathVariable Long id) {
         return service.gerarProximaRodadaSwiss(id);
+    }
+
+    @PostMapping("/{id}/mata-mata")
+    public CampeonatoResponse iniciarMataMata(@PathVariable Long id,
+            @Valid @RequestBody(required = false) IniciarMataMataRequest request) {
+        return service.iniciarMataMata(id, request);
+    }
+
+    @GetMapping("/{id}/mata-mata/vagas")
+    public List<VagaMataMataResponse> vagasMataMata(@PathVariable Long id) {
+        return service.vagasMataMata(id);
+    }
+
+    @PostMapping("/{id}/rodadas/{rodadaId}/iniciar")
+    public CampeonatoResponse iniciarRodadaMataMata(@PathVariable Long id, @PathVariable Long rodadaId) {
+        return service.iniciarRodadaMataMata(id, rodadaId);
+    }
+
+    @PostMapping("/{id}/participantes/{participanteId}/desistir")
+    public CampeonatoResponse desistirParticipante(@PathVariable Long id, @PathVariable Long participanteId) {
+        return service.desistirParticipante(id, participanteId);
     }
 
     @PutMapping("/{id}/partidas/{partidaId}/resultado")

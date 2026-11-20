@@ -53,7 +53,7 @@ class EliminatorioIdaVoltaServiceTests {
                     assertEquals(ida.visitante().id(), volta.mandante().id());
                     service.registrarResultado(id, ida.id(), placar(3, 0));
                     recarregar();
-                    assertEquals(RodadaStatus.EM_ANDAMENTO, service.buscar(id).fases().getFirst().rodadas().stream()
+                    assertEquals(RodadaStatus.EM_ANDAMENTO, solicitarAvanco(id).fases().getFirst().rodadas().stream()
                             .filter(r -> r.id().equals(rodada.id())).findFirst().orElseThrow().status());
                     service.registrarResultado(id, volta.id(), placar(2, 0));
                     jogos += 2;
@@ -64,7 +64,7 @@ class EliminatorioIdaVoltaServiceTests {
                 }
             }
             recarregar();
-            campeonato = service.buscar(id);
+            campeonato = solicitarAvanco(id);
         }
         assertEquals(formato == FormatoEliminatorio.IDA_E_VOLTA ? 2 * (quantidade - 1) : 2 * (quantidade - 1) - 1, jogos);
         assertEquals(campeaoEsperado, service.vencedor(id).id());
@@ -88,7 +88,7 @@ class EliminatorioIdaVoltaServiceTests {
         service.registrarResultado(campeonato.id(), partidas(campeonato.id(), outro).getFirst().id(), placar(0, 0));
         service.registrarResultado(campeonato.id(), partidas(campeonato.id(), outro).getLast().id(), placar(1, 0));
         recarregar();
-        var finalJogo = service.buscar(campeonato.id()).fases().getFirst().rodadas().getLast().partidas().getFirst();
+        var finalJogo = solicitarAvanco(campeonato.id()).fases().getFirst().rodadas().getLast().partidas().getFirst();
         assertEquals(volta.mandante().id(), finalJogo.mandante().id());
     }
 
@@ -110,10 +110,11 @@ class EliminatorioIdaVoltaServiceTests {
                 new ResultadoPartidaRequest(partidas(campeonato.id(), outro).getFirst().id(), placar(1, 0)),
                 new ResultadoPartidaRequest(partidas(campeonato.id(), outro).getLast().id(), placar(0, 1))));
         recarregar();
-        var aberto = service.buscar(campeonato.id());
+        var aberto = solicitarAvanco(campeonato.id());
         assertEquals(RodadaStatus.EM_ANDAMENTO, aberto.fases().getFirst().rodadas().getFirst().status());
         assertEquals(RodadaStatus.PENDENTE, aberto.fases().getFirst().rodadas().getLast().status());
-        var avancado = service.finalizarRodada(campeonato.id(), rodada.id());
+        service.finalizarRodada(campeonato.id(), rodada.id());
+        var avancado = solicitarAvanco(campeonato.id());
         assertEquals(RodadaStatus.EM_ANDAMENTO, avancado.fases().getFirst().rodadas().getLast().status());
         assertEquals(2, avancado.fases().getFirst().rodadas().getLast().partidas().size());
     }
@@ -127,7 +128,7 @@ class EliminatorioIdaVoltaServiceTests {
             service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getLast().id(), placar(0, 4));
         }
         recarregar();
-        var salvo = service.buscar(campeonato.id());
+        var salvo = solicitarAvanco(campeonato.id());
         var semi = salvo.fases().getFirst().confrontos().getFirst();
         var finalJogo = salvo.fases().getFirst().rodadas().getLast().partidas().getFirst();
         var trocado = service.registrarResultado(campeonato.id(), partidas(campeonato.id(), semi).getFirst().id(), placar(0, 8));
@@ -150,7 +151,7 @@ class EliminatorioIdaVoltaServiceTests {
             service.registrarResultado(campeonato.id(), partidas(campeonato.id(), confronto).getLast().id(), placar(0, 1));
         }
         recarregar();
-        var finalConfronto = service.buscar(campeonato.id()).fases().getFirst().confrontos().getLast();
+        var finalConfronto = solicitarAvanco(campeonato.id()).fases().getFirst().confrontos().getLast();
         var ida = partidas(campeonato.id(), finalConfronto).getFirst();
         var volta = partidas(campeonato.id(), finalConfronto).getLast();
         service.registrarResultado(campeonato.id(), ida.id(), placar(0, 0));
@@ -159,12 +160,12 @@ class EliminatorioIdaVoltaServiceTests {
         service.registrarResultado(campeonato.id(), volta.id(), new ResultadoRequest(0, 0, 4, 5, false));
         recarregar();
         assertEquals(volta.visitante().id(), service.vencedor(campeonato.id()).id());
-        assertEquals(CampeonatoStatus.FINALIZADO, service.buscar(campeonato.id()).status());
-        assertEquals(2, service.buscar(campeonato.id()).fases().getFirst().confrontos().getLast().partidaIds().size());
+        assertEquals(CampeonatoStatus.FINALIZADO, solicitarAvanco(campeonato.id()).status());
+        assertEquals(2, solicitarAvanco(campeonato.id()).fases().getFirst().confrontos().getLast().partidaIds().size());
     }
 
     private List<PartidaResponse> partidas(Long campeonatoId, ConfrontoResponse confronto) {
-        var todas = service.buscar(campeonatoId).fases().stream().flatMap(f -> f.rodadas().stream())
+        var todas = solicitarAvanco(campeonatoId).fases().stream().flatMap(f -> f.rodadas().stream())
                 .flatMap(r -> r.partidas().stream()).collect(java.util.stream.Collectors.toMap(PartidaResponse::id, p -> p));
         return confronto.partidaIds().stream().map(id -> Objects.requireNonNull(todas.get(id))).toList();
     }
@@ -179,9 +180,13 @@ class EliminatorioIdaVoltaServiceTests {
         var criado = service.criar(new CampeonatoRequest(org.id(), 2026, participantes));
         service.iniciar(criado.id(), new IniciarCampeonatoRequest(TipoFormato.ELIMINATORIO, false, null, null, null, formato));
         recarregar();
-        return service.buscar(criado.id());
+        return solicitarAvanco(criado.id());
     }
 
     private ResultadoRequest placar(int casa, int fora) { return new ResultadoRequest(casa, fora, null, null, false); }
     private void recarregar() { em.flush(); em.clear(); }
+    // A simulacao solicita o avanco explicitamente antes de consultar a proxima etapa.
+    private CampeonatoResponse solicitarAvanco(Long id) {
+        return com.datadynecode.futcompetitivo.api.suporte.AvancoEliminatorio.solicitar(service, id);
+    }
 }
