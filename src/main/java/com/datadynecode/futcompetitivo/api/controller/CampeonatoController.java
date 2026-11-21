@@ -52,6 +52,12 @@ public class CampeonatoController {
         return service.iniciarComGruposManuais(id, request);
     }
 
+    @PostMapping("/{id}/iniciar/liga-parcial/manual")
+    public CampeonatoResponse iniciarLigaParcialManual(@PathVariable Long id,
+            @Valid @RequestBody IniciarLigaParcialManualRequest request) {
+        return service.iniciarLigaParcialManual(id,request);
+    }
+
     @PostMapping("/{id}/iniciar/eliminatorio/manual")
     public CampeonatoResponse iniciarEliminatorioManual(@PathVariable Long id,
             @Valid @RequestBody IniciarEliminatorioManualRequest request) {

@@ -1,6 +1,6 @@
 # Forma de geracao do mata-mata
 
-Nas configuracoes dos formatos `ELIMINATORIO`, `MISTA` e `GRUPOS`, o campo
+Nas configuracoes dos formatos `ELIMINATORIO`, `MISTA`, `MISTA_PARCIAL` e `GRUPOS`, o campo
 opcional `formaGeracaoMataMata` aceita `AUTOMATICA` ou `ALEATORIA`.
 Nao e aceito em formatos sem mata-mata.
 
@@ -33,7 +33,7 @@ do mata-mata apos classificatoria exigem `ADMIN`.
 Usa a distribuicao por posicoes existente: com oito entradas, os confrontos sao
 1 x 8, 4 x 5, 2 x 7 e 3 x 6.
 
-- `MISTA`: usa a ordem da classificacao da liga.
+- `MISTA` e `MISTA_PARCIAL`: usam a ordem da classificacao da liga.
 - `GRUPOS`: usa a lista intercalada dos classificados de cada grupo
   (A1, B1, A2, B2...), com as regras existentes para quantidade impar de vagas.
 - `ELIMINATORIO`: como nao existe classificatoria, usa a ordem dos participantes

@@ -17,7 +17,7 @@ Authorization: Bearer <token-admin>
 Sem vagas de desistentes, a requisicao pode ser enviada sem corpo. A API exige:
 
 - Campeonato `EM_ANDAMENTO` com fase classificatoria configurada com vagas para
-  o mata-mata (formatos `GRUPOS` e `MISTA`).
+  o mata-mata (formatos `GRUPOS`, `MISTA` e `MISTA_PARCIAL`).
 - Todas as rodadas da classificatoria finalizadas e todos os seus jogos com
   resultado finalizado, incluindo W.O.s.
 - Mata-mata ainda nao criado. Repetir a solicitacao nao duplica a fase/jogos.

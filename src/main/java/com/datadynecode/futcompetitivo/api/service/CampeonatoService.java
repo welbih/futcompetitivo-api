@@ -28,6 +28,8 @@ public class CampeonatoService {
     private final GeradorEliminatorioService eliminatorio;
     private final ValidadorResultadoEliminatorioService validadorEliminatorio;
     private final ClassificacaoGruposService classificacaoGrupos;
+    private final ClassificacaoAtualService classificacoesAtuais;
+    private final EventosCampeonatoService eventos;
 
     public List<CampeonatoResponse> listar() {
         return repository.findAll(Sort.by("id")).stream().map(mapper::toResponse).toList();
@@ -37,22 +39,23 @@ public class CampeonatoService {
 
     @Transactional
     public void deletar(Long id) {
-        repository.delete(buscarEntidade(id));
+        repository.delete(buscarParaAtualizar(id));
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.CAMPEONATO_EXCLUIDO);
     }
 
     @Transactional
     public CampeonatoResponse criar(CampeonatoRequest request) {
         Campeonato campeonato = new Campeonato();
         preencher(campeonato, request);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_CRIADO);
     }
 
     @Transactional
     public CampeonatoResponse atualizar(Long id, CampeonatoRequest request) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         exigir(campeonato.getStatus() == CampeonatoStatus.CRIADO, "Campeonato já iniciado.");
         preencher(campeonato, request);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_ALTERADO);
     }
 
     @Transactional
@@ -65,7 +68,7 @@ public class CampeonatoService {
         if (fase.getTipo() == TipoFase.SWISS)
             geradorSwiss.gerar(fase, campeonato.getParticipantes(), null);
         campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
     }
 
     @Transactional
@@ -75,7 +78,7 @@ public class CampeonatoService {
         Fase fase = geradorFases.gerarGruposManuais(campeonato.getParticipantes(), request);
         campeonato.getFases().add(fase);
         campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
     }
 
     @Transactional
@@ -93,7 +96,17 @@ public class CampeonatoService {
         campeonato.getFases().add(fase);
         campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
         finalizarRodadasResolvidas(campeonato);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarLigaParcialManual(Long id, IniciarLigaParcialManualRequest request) {
+        Campeonato campeonato=buscarParaAtualizar(id);
+        validarInicio(campeonato);
+        Fase fase=geradorFases.gerarLigaParcialManual(campeonato.getParticipantes(),request);
+        campeonato.getFases().add(fase);
+        campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
     }
 
     @Transactional
@@ -123,7 +136,7 @@ public class CampeonatoService {
         eliminatorio.gerar(mataMata, classificados, request == null ? null : request.confrontosPrimeiraRodada());
         campeonato.getFases().add(mataMata);
         campeonato.getSubstituicoesMataMata().putAll(substituicoes);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.MATA_MATA_INICIADO);
     }
 
     public List<VagaMataMataResponse> vagasMataMata(Long id) {
@@ -156,6 +169,7 @@ public class CampeonatoService {
         eliminatorio.prepararRodada(fase, rodada, campeonato.getParticipantesDesistentes());
         aplicarWo(campeonato);
         finalizarRodadasResolvidas(campeonato);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_ABERTA,rodadaId,null);
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
@@ -173,7 +187,7 @@ public class CampeonatoService {
                 campeonato.getClassificadosBase().addAll(classificadosOriginais(campeonato,classificatoria).stream().map(Participante::getId).toList());
             }
         }
-        campeonato.getParticipantesDesistentes().add(participanteId);
+        boolean novaDesistencia = campeonato.getParticipantesDesistentes().add(participanteId);
         Set<Rodada> alteradas = aplicarWo(campeonato);
         // Recalcula snapshots que possam conter W.O. agora duplo (0x0), sem modificar jogos disputados.
         for (Fase fase : campeonato.getFases()) {
@@ -184,6 +198,7 @@ public class CampeonatoService {
             }
         }
         finalizarRodadasResolvidas(campeonato);
+        if(novaDesistencia || !alteradas.isEmpty()) eventos.registrar(id,MotivoAtualizacaoCampeonato.DESISTENCIA_REGISTRADA);
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
@@ -279,6 +294,7 @@ public class CampeonatoService {
         geradorSwiss.gerar(fase, campeonato.getParticipantes().stream()
                 .filter(p -> !campeonato.getParticipantesDesistentes().contains(p.getId())).toList(), ultima(campeonato));
         Campeonato salvo = repository.saveAndFlush(campeonato);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_ABERTA,salvo.getFases().getFirst().getRodadas().getLast().getId(),null);
         return mapper.toResponse(salvo.getFases().getFirst().getRodadas().getLast());
     }
 
@@ -308,6 +324,7 @@ public class CampeonatoService {
                 && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())
                 && request.penaltisMandante() == null && request.penaltisVisitante() == null), "O placar de W.O. não pode ser alterado manualmente.");
         if (validarConfrontos && !partida.isWo()) validadorEliminatorio.validar(fase, Map.of(partidaId, request));
+        boolean videoAlterado = !Objects.equals(partida.getYoutubeUrl(),request.youtubeUrl());
         partida.setYoutubeUrl(request.youtubeUrl());
         if (partida.isFinalizada()
                 && Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
@@ -317,8 +334,10 @@ public class CampeonatoService {
             if (finalizarAutomaticamente && rodada.getStatus() == RodadaStatus.EM_ANDAMENTO
                     && rodada.getPartidas().stream().allMatch(Partida::isFinalizada)) {
                 finalizar(campeonato, rodadas, rodada);
+                eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
                 return mapper.toResponse(repository.saveAndFlush(campeonato));
             }
+            if(videoAlterado) eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
             return mapper.toResponse(campeonato);
         }
         if (fase.getQuantidadeClassificados() != null && campeonato.getFases().size() > 1) {
@@ -329,6 +348,7 @@ public class CampeonatoService {
         partida.setResultado(new Resultado(Boolean.TRUE.equals(request.golDeOuro()), request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
         partida.setStatus(StatusPartida.FINALIZADA);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
         if (rodada.getStatus() == RodadaStatus.FINALIZADA
                 || (finalizarAutomaticamente && rodada.getPartidas().stream().allMatch(Partida::isFinalizada))) {
             finalizar(campeonato, rodadas, rodada);
@@ -353,6 +373,7 @@ public class CampeonatoService {
         resultados.forEach(r -> novosResultados.put(r.partidaId(), r.resultado()));
         validadorEliminatorio.validar(faseDaRodada(campeonato, rodada), novosResultados);
         resultados.forEach(r -> registrarResultado(id, r.partidaId(), r.resultado(), false, false));
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADOS_ALTERADOS,rodadaId,null);
         return mapper.toResponse(campeonato);
     }
 
@@ -371,6 +392,7 @@ public class CampeonatoService {
         exigir(rodada.getPartidas().stream().allMatch(Partida::isFinalizada),
                 "Todas as partidas devem ter resultado antes de finalizar a rodada.");
         finalizar(campeonato, rodadas, rodada);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_FINALIZADA,rodadaId,null);
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
@@ -449,7 +471,7 @@ public class CampeonatoService {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getFases().isEmpty() || campeonato.getFases().getFirst().getTipo() != TipoFase.GRUPOS,
                 "Consulte a classificação de cada grupo pelo endpoint de grupos.");
-        Classificacao classificacao = ultima(campeonato);
+        Classificacao classificacao = classificacoesAtuais.atual(campeonato);
         if (classificacao == null) throw new RegraCampeonatoException("Não há classificação disponível.");
         return mapper.toResponse(classificacao);
     }
@@ -462,6 +484,9 @@ public class CampeonatoService {
             return campeonato.getClassificadosBase().stream().limit(quantidade)
                     .map(participanteId -> participantes.stream().filter(p -> p.id().equals(participanteId)).findFirst().orElseThrow()).toList();
         }
+        if(!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getQuantidadeClassificados()!=null)
+            exigir(campeonato.getFases().getFirst().getRodadas().stream().allMatch(r -> r.getStatus()==RodadaStatus.FINALIZADA),
+                    "Fase classificatória ainda não finalizada.");
         if (!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS) {
             exigir(campeonato.getFases().getFirst().getRodadas().stream()
                     .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Fase de grupos ainda não finalizada.");
@@ -479,14 +504,15 @@ public class CampeonatoService {
         Campeonato campeonato = buscarEntidade(id);
         exigir(!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS,
                 "Campeonato não utiliza fase de grupos.");
-        return campeonato.getFases().getFirst().getGrupos().stream().map(mapper::toResponse).toList();
+        Fase fase=campeonato.getFases().getFirst();
+        return fase.getGrupos().stream().map(g -> mapper.toResponse(fase,g)).toList();
     }
 
     public ClassificacaoResponse classificacaoGrupo(Long id, Long grupoId) {
         GrupoResponse grupo = grupos(id).stream().filter(g -> g.id().equals(grupoId)).findFirst()
                 .orElseThrow(() -> naoEncontrado("Grupo", grupoId));
-        exigir(!grupo.classificacaoPorRodada().isEmpty(), "Não há classificação disponível para o grupo.");
-        return grupo.classificacaoPorRodada().getLast();
+        exigir(grupo.classificacaoAtual()!=null, "Não há classificação disponível para o grupo.");
+        return grupo.classificacaoAtual();
     }
 
     private void preencher(Campeonato campeonato, CampeonatoRequest request) {
@@ -544,6 +570,12 @@ public class CampeonatoService {
         }
         exigir(!temPenaltis, "Pênaltis não são utilizados nas fases de liga ou Swiss.");
         exigir(!Boolean.TRUE.equals(request.golDeOuro()), "Gol de ouro não é utilizado nas fases de liga ou Swiss.");
+    }
+
+    private CampeonatoResponse salvarNotificando(Campeonato campeonato,MotivoAtualizacaoCampeonato motivo) {
+        Campeonato salvo=repository.saveAndFlush(campeonato);
+        eventos.registrar(salvo.getId(),motivo);
+        return mapper.toResponse(salvo);
     }
 
     private Classificacao ultima(Campeonato campeonato) {

@@ -124,6 +124,27 @@ class AutenticacaoTests {
         assertEquals(201,copaManual.statusCode(),copaManual.body());
         Number copaManualId = JsonPath.read(copaManual.body(),"$.id");
         java.util.List<Number> manuais = JsonPath.read(copaManual.body(),"$.participantes[*].id");
+        var ligaAntiga=enviar("POST","/campeonatos",cadastro,"application/json","Bearer "+tokenAdmin);
+        assertEquals(201,ligaAntiga.statusCode(),ligaAntiga.body());
+        Number ligaId=JsonPath.read(ligaAntiga.body(),"$.id");
+        java.util.List<Number> participantesLiga=JsonPath.read(ligaAntiga.body(),"$.participantes[*].id");
+        int[][][] agendaLiga={{{0,1},{2,3}},{{0,2},{1,3}},{{0,3},{1,2}}};
+        var rodadasLiga=java.util.Arrays.stream(agendaLiga).map(r -> new com.datadynecode.futcompetitivo.api.dto.IniciarLigaParcialManualRequest.RodadaManual(
+                java.util.Arrays.stream(r).map(p -> new com.datadynecode.futcompetitivo.api.dto.ConfrontoInicialRequest(
+                        participantesLiga.get(p[0]).longValue(),participantesLiga.get(p[1]).longValue())).toList())).toList();
+        var configuracaoLiga=new com.datadynecode.futcompetitivo.api.dto.IniciarCampeonatoRequest(
+                com.datadynecode.futcompetitivo.api.entity.TipoFormato.MISTA_PARCIAL,false,3,null,4);
+        String corpoLiga=tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(
+                new com.datadynecode.futcompetitivo.api.dto.IniciarLigaParcialManualRequest(configuracaoLiga,rodadasLiga));
+        String rotaLiga="/campeonatos/"+ligaId+"/iniciar/liga-parcial/manual";
+        assertEquals(401,enviar("POST",rotaLiga,corpoLiga,"application/json",null).statusCode());
+        assertEquals(403,enviar("POST",rotaLiga,corpoLiga,"application/json","Bearer "+tokenUser).statusCode());
+        assertEquals(400,enviar("POST",rotaLiga,"{}","application/json","Bearer "+tokenAdmin).statusCode());
+        var inicioLiga=enviar("POST",rotaLiga,corpoLiga,"application/json","Bearer "+tokenAdmin);
+        assertEquals(200,inicioLiga.statusCode(),inicioLiga.body());
+        assertEquals(3,(int)JsonPath.read(inicioLiga.body(),"$.fases[0].jogosPorParticipante"));
+        assertEquals(3,(int)JsonPath.read(inicioLiga.body(),"$.fases[0].totalRodadas"));
+        assertEquals(400,enviar("POST",rotaLiga,corpoLiga,"application/json","Bearer "+tokenAdmin).statusCode());
         String rotaManual = "/campeonatos/"+copaManualId+"/iniciar/eliminatorio/manual";
         String corpoManual = "{\"confrontosPrimeiraRodada\":[{\"mandanteId\":"+manuais.get(2)+",\"visitanteId\":"+manuais.get(0)
                 +"},{\"mandanteId\":"+manuais.get(1)+",\"visitanteId\":"+manuais.get(3)+"}]}";
@@ -169,6 +190,11 @@ class AutenticacaoTests {
         assertEquals(403,enviar("GET",base+"/mata-mata/vagas",null,null,"Bearer "+tokenUser).statusCode());
         assertEquals(400,enviar("POST",base+"/mata-mata",null,null,"Bearer "+tokenAdmin).statusCode());
         java.util.List<Number> jogosGrupo = JsonPath.read(iniciado.body(),"$.fases[0].rodadas[*].partidas[*].id");
+        var parcial=enviar("PUT",base+"/partidas/"+jogosGrupo.getFirst()+"/resultado",
+                "{\"golsMandante\":1,\"golsVisitante\":0}","application/json","Bearer "+tokenAdmin);
+        assertEquals(200,parcial.statusCode(),parcial.body());
+        assertEquals(Boolean.TRUE,JsonPath.read(parcial.body(),"$.fases[0].grupos[0].classificacaoAtual.parcial"));
+        assertTrue(((java.util.List<?>)JsonPath.read(parcial.body(),"$.fases[0].grupos[0].classificacaoPorRodada")).isEmpty());
         for (Number partida : jogosGrupo) assertEquals(200,enviar("PUT",base+"/partidas/"+partida+"/resultado",
                 "{\"golsMandante\":1,\"golsVisitante\":0}","application/json","Bearer "+tokenAdmin).statusCode());
         var aguardando = enviar("GET",base,null,null,null);

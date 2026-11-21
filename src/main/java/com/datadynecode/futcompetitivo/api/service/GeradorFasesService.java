@@ -49,8 +49,12 @@ public class GeradorFasesService {
     }
 
     public Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request) {
+        return gerar(participantes,request,true);
+    }
+
+    private Fase gerar(List<Participante> participantes, IniciarCampeonatoRequest request,boolean gerarAgenda) {
         exigir(request.formatoEliminatorio() == null || request.formato() == TipoFormato.ELIMINATORIO
-                        || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.GRUPOS,
+                        || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.MISTA_PARCIAL || request.formato() == TipoFormato.GRUPOS,
                 "formatoEliminatorio exige um formato com mata-mata.");
         Fase fase = new Fase();
         fase.setOrdem(1);
@@ -58,12 +62,12 @@ public class GeradorFasesService {
                 "quantidadeGrupos é permitido apenas no formato GRUPOS.");
         exigir(!Boolean.TRUE.equals(request.disputaTerceiroLugar())
                         || request.formato() == TipoFormato.ELIMINATORIO || request.formato() == TipoFormato.MISTA
-                        || request.formato() == TipoFormato.GRUPOS,
+                        || request.formato() == TipoFormato.GRUPOS || request.formato() == TipoFormato.MISTA_PARCIAL,
                 "Disputa de terceiro lugar exige um formato com mata-mata.");
         fase.setDisputaTerceiroLugar(Boolean.TRUE.equals(request.disputaTerceiroLugar()));
         fase.setFormatoEliminatorio(request.formatoEliminatorio());
         boolean temMataMata = request.formato() == TipoFormato.ELIMINATORIO
-                || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.GRUPOS;
+                || request.formato() == TipoFormato.MISTA || request.formato() == TipoFormato.MISTA_PARCIAL || request.formato() == TipoFormato.GRUPOS;
         exigir(request.formaGeracaoMataMata() == null || temMataMata,
                 "formaGeracaoMataMata exige um formato com mata-mata.");
         if (temMataMata) fase.setFormaGeracaoMataMata(request.formaGeracaoMataMata() != null
@@ -76,7 +80,7 @@ public class GeradorFasesService {
                 fase.setTurnoEreturno(Boolean.TRUE.equals(request.turnoEreturno()));
                 gerarLiga(fase, participantes);
             }
-            case LIGA_PARCIAL -> {
+            case LIGA_PARCIAL, MISTA_PARCIAL -> {
                 Integer jogos = request.jogosPorParticipante();
                 exigir(jogos != null && jogos >= 3,
                         "A liga parcial deve ter no mínimo 3 jogos por participante.");
@@ -86,7 +90,17 @@ public class GeradorFasesService {
                         "O total de participantes multiplicado pelos jogos deve ser par.");
                 fase.setTipo(TipoFase.LIGA);
                 fase.setJogosPorParticipante(jogos);
-                gerarLigaParcial(fase, participantes, jogos);
+                if(request.formato()==TipoFormato.MISTA_PARCIAL) {
+                    exigir(!Boolean.TRUE.equals(request.turnoEreturno()),"A liga parcial usa jogosPorParticipante, sem turno e returno.");
+                    exigir(request.totalRodadas()==null,"Na liga parcial configure jogosPorParticipante; a agenda define o total de rodadas.");
+                    Integer vagas=request.quantidadeClassificados();
+                    exigir(vagas!=null && vagas>=4 && vagas<=participantes.size(),"Informe pelo menos quatro classificados, sem exceder o total de participantes.");
+                    fase.setQuantidadeClassificados(vagas);
+                }
+                if(gerarAgenda) {
+                    gerarLigaParcial(fase, participantes, jogos);
+                    fase.setTotalRodadas(fase.getRodadas().size());
+                }
             }
             case SWISS -> {
                 exigir(participantes.size() >= 2, "Swiss precisa de pelo menos 2 participantes.");
@@ -128,6 +142,40 @@ public class GeradorFasesService {
         }
         if (!fase.getRodadas().isEmpty())
             fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
+        return fase;
+    }
+
+    public Fase gerarLigaParcialManual(List<Participante> participantes,
+            com.datadynecode.futcompetitivo.api.dto.IniciarLigaParcialManualRequest request) {
+        exigir(request!=null && request.configuracao()!=null,"Informe a configuração da liga parcial.");
+        var configuracao=request.configuracao();
+        exigir(configuracao.formato()==TipoFormato.MISTA_PARCIAL || configuracao.formato()==TipoFormato.LIGA_PARCIAL,
+                "A agenda manual exige LIGA_PARCIAL ou MISTA_PARCIAL.");
+        Fase fase=gerar(participantes,configuracao,false);
+        exigir(request.rodadas()!=null && !request.rodadas().isEmpty(),"Informe todas as rodadas da liga parcial.");
+        Map<Long,Participante> porId=new HashMap<>();
+        Map<Long,Integer> jogos=new HashMap<>();
+        participantes.forEach(p -> {porId.put(p.getId(),p); jogos.put(p.getId(),0);});
+        Set<String> confrontos=new HashSet<>();
+        for(var entrada:request.rodadas()) {
+            exigir(entrada!=null && entrada.partidas()!=null && !entrada.partidas().isEmpty(),"Cada rodada deve conter partidas.");
+            Rodada rodada=new Rodada(fase.getRodadas().size()+1);
+            Set<Long> usados=new HashSet<>();
+            for(var p:entrada.partidas()) {
+                exigir(p!=null && p.mandanteId()!=null && p.visitanteId()!=null
+                        && porId.containsKey(p.mandanteId()) && porId.containsKey(p.visitanteId()),"Informe dois participantes do campeonato em cada jogo.");
+                exigir(usados.add(p.mandanteId()) && usados.add(p.visitanteId()),"Um participante só pode jogar uma vez por rodada, contra outro participante.");
+                String chave=Math.min(p.mandanteId(),p.visitanteId())+":"+Math.max(p.mandanteId(),p.visitanteId());
+                exigir(confrontos.add(chave),"A liga parcial não permite repetir adversários, mesmo com mando invertido.");
+                jogos.merge(p.mandanteId(),1,Integer::sum); jogos.merge(p.visitanteId(),1,Integer::sum);
+                rodada.getPartidas().add(new Partida(porId.get(p.mandanteId()),porId.get(p.visitanteId())));
+            }
+            fase.getRodadas().add(rodada);
+        }
+        exigir(jogos.values().stream().allMatch(n -> n.equals(fase.getJogosPorParticipante())),
+                "A agenda deve conter exatamente jogosPorParticipante jogos para cada participante.");
+        fase.setTotalRodadas(fase.getRodadas().size());
+        fase.getRodadas().getFirst().setStatus(RodadaStatus.EM_ANDAMENTO);
         return fase;
     }
 

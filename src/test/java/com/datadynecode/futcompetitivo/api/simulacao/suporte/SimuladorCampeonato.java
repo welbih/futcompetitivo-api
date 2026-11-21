@@ -93,7 +93,7 @@ public class SimuladorCampeonato {
             rodadasDisputadas++;
             recarregar();
             campeonato = campeonatos.buscar(criado.id());
-            ClassificacaoResponse classificacao = campeonatos.classificacao(criado.id());
+            ClassificacaoResponse classificacao = campeonato.classificacaoPorRodada().getLast();
             validarClassificacao(classificacao, esperado);
             assertEquals(historico, campeonato.classificacaoPorRodada().subList(0, historico.size()),
                     "Rodadas anteriores devem preservar suas classificacoes.");

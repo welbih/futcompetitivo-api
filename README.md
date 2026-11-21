@@ -33,6 +33,13 @@ Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as 
 
 ## Avanco e desistencias
 
+`GET /campeonatos/{id}/eventos` disponibiliza SSE publico para notificacoes
+apos commit. Veja [eventos, EventSource, proxy e limitacao a uma instancia](docs/eventos-campeonatos.md).
+
+O formato `MISTA_PARCIAL` combina liga parcial com mata-mata. O admin tambem
+pode informar a agenda completa de jogos por rodada para campeonatos antigos.
+Veja [configuracao, agenda manual e exemplos](docs/liga-parcial-mata-mata.md).
+
 O inicio do mata-mata apos grupos/liga exige solicitacao explicita de `ADMIN`.
 Depois disso, as rodadas eliminatorias avancam automaticamente. Desistencias
 em qualquer fase aplicam W.O. de 3x0 nos jogos pendentes; dois
@@ -60,6 +67,10 @@ os grupos A e B de um campeonato ainda nao iniciado, preservando a composicao e
 gerando a agenda sem registrar resultados. Veja [payload e regras](docs/grupos-manuais.md).
 
 ## Estatisticas individuais
+
+Os formatos com tabela disponibilizam `classificacaoAtual`, com `parcial: true`
+durante a rodada. O historico continua separado em `classificacaoPorRodada`.
+Veja [contrato e regras da classificacao parcial](docs/classificacao-parcial.md).
 
 Endpoint publico: `GET /jogadores/{id}/estatisticas?origem=TODOS`, com filtros
 `CAMPEONATO`, `X1` ou `TODOS`. Inclui resumo geral, recordes de goleadas e

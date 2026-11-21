@@ -119,6 +119,35 @@ class FlywayMigrationTests {
 
     @Test
     @Transactional
+    void persisteLigaParcialComMataMataEAgendaManual() {
+        var lista=new ArrayList<ParticipanteRequest>();
+        for(int i=0;i<4;i++) {
+            var jogador=jogadores.criar(new JogadorRequest("Antigo PG "+i,null));
+            var equipe=equipes.criar(new EquipeRequest("Equipe antiga "+i,"https://example.com/logo.png"));
+            lista.add(new ParticipanteRequest(jogador.id(),equipe.id()));
+        }
+        var c=campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Parcial PG",true)).id(),2020,lista));
+        var ids=c.participantes().stream().map(ParticipanteResponse::id).toList();
+        int[][][] agenda={{{0,1},{2,3}},{{0,2},{1,3}},{{0,3},{1,2}}};
+        var rodadas=java.util.Arrays.stream(agenda).map(r -> new IniciarLigaParcialManualRequest.RodadaManual(java.util.Arrays.stream(r)
+                .map(p -> new ConfrontoInicialRequest(ids.get(p[0]),ids.get(p[1]))).toList())).toList();
+        var configuracao=new IniciarCampeonatoRequest(TipoFormato.MISTA_PARCIAL,false,3,null,4,null,true,
+                com.datadynecode.futcompetitivo.api.entity.FormaGeracaoMataMata.ALEATORIA);
+        campeonatos.iniciarLigaParcialManual(c.id(),new IniciarLigaParcialManualRequest(configuracao,rodadas));
+        entityManager.flush(); entityManager.clear();
+        var salvo=campeonatos.buscar(c.id());
+        assertEquals(3,salvo.fases().getFirst().jogosPorParticipante()); assertEquals(3,salvo.fases().getFirst().totalRodadas());
+        assertEquals(ids.getFirst(),salvo.fases().getFirst().rodadas().getFirst().partidas().getFirst().mandante().id());
+        for(var r:salvo.fases().getFirst().rodadas()) for(var p:r.partidas())
+            campeonatos.registrarResultado(c.id(),p.id(),new ResultadoRequest(1,0,null,null,false));
+        assertTrue(campeonatos.buscar(c.id()).aguardandoMataMata());
+        var mata=campeonatos.iniciarMataMata(c.id());
+        assertEquals(2,mata.fases().size());
+        assertEquals(com.datadynecode.futcompetitivo.api.entity.FormaGeracaoMataMata.ALEATORIA,mata.fases().getLast().formaGeracaoMataMata());
+    }
+
+    @Test
+    @Transactional
     void schemaMigradoSuportaCampeonatoResultadosEClassificacao() {
         List<Long> ids = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -129,6 +158,11 @@ class FlywayMigrationTests {
         var criado = campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Liga migrada", true)).id(), 2026, selecoes(ids)));
         var iniciado = campeonatos.iniciar(criado.id(),
                 new IniciarCampeonatoRequest(TipoFormato.LIGA, false, null, null));
+        campeonatos.registrarResultado(criado.id(),iniciado.fases().getFirst().rodadas().getFirst().partidas().getFirst().id(),
+                new ResultadoRequest(2,1,null,null,false));
+        entityManager.flush(); entityManager.clear();
+        assertTrue(campeonatos.classificacao(criado.id()).parcial());
+        assertTrue(campeonatos.buscar(criado.id()).classificacaoPorRodada().isEmpty());
         for (var rodada : iniciado.fases().getFirst().rodadas())
             for (var partida : rodada.partidas())
                 campeonatos.registrarResultado(criado.id(), partida.id(),

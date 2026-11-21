@@ -1,0 +1,14 @@
+package com.datadynecode.futcompetitivo.api.entity;
+
+public enum MotivoAtualizacaoCampeonato {
+    CAMPEONATO_CRIADO,
+    CAMPEONATO_ALTERADO,
+    CAMPEONATO_INICIADO,
+    RESULTADO_ALTERADO,
+    RESULTADOS_ALTERADOS,
+    RODADA_ABERTA,
+    RODADA_FINALIZADA,
+    MATA_MATA_INICIADO,
+    DESISTENCIA_REGISTRADA,
+    CAMPEONATO_EXCLUIDO
+}

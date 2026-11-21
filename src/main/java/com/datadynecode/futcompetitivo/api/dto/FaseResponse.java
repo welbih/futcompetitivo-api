@@ -8,7 +8,7 @@ import java.util.List;
 public record FaseResponse(Long id, Integer ordem, TipoFase tipo,
         List<RodadaResponse> rodadas, List<ConfrontoResponse> confrontos, Integer quantidadeClassificados,
         List<GrupoResponse> grupos, FormatoEliminatorio formatoEliminatorio, boolean disputaTerceiroLugar,
-        FormaGeracaoMataMata formaGeracaoMataMata) {
+        FormaGeracaoMataMata formaGeracaoMataMata,Integer jogosPorParticipante,Integer totalRodadas) {
     @com.fasterxml.jackson.annotation.JsonProperty("quantidadeGrupos")
     public Integer quantidadeGrupos() { return tipo == TipoFase.GRUPOS ? grupos.size() : null; }
 }

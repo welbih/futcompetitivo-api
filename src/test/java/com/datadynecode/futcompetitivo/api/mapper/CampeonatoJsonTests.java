@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class CampeonatoJsonTests {
-    private final CampeonatoMapper mapper = new CampeonatoMapper(mock(ParticipanteMapper.class), mock(OrganizacaoMapper.class));
+    private final CampeonatoMapper mapper = new CampeonatoMapper(mock(ParticipanteMapper.class), mock(OrganizacaoMapper.class),
+            mock(com.datadynecode.futcompetitivo.api.service.ClassificacaoAtualService.class));
     private final JsonMapper json = JsonMapper.builder().build();
 
     @ParameterizedTest

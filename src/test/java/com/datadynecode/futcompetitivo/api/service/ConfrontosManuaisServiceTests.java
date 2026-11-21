@@ -195,6 +195,89 @@ class ConfrontosManuaisServiceTests {
         assertThrows(RegraCampeonatoException.class,()->service.iniciar(pequeno.id(),new IniciarCampeonatoRequest(TipoFormato.GRUPOS,false,null,null,4)));
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value=TipoFormato.class,names={"LIGA","LIGA_PARCIAL","SWISS","MISTA","GRUPOS"})
+    void classificacaoParcialAtualizaInclusaoEdicaoSemDuplicarOuAvancar(TipoFormato formato) {
+        var c=criar(6);
+        var iniciado=service.iniciar(c.id(),new IniciarCampeonatoRequest(formato,false,
+                formato==TipoFormato.LIGA_PARCIAL ? 3:null,formato==TipoFormato.SWISS ? 2:null,
+                formato==TipoFormato.GRUPOS || formato==TipoFormato.MISTA ? 4:null));
+        var primeira=iniciado.fases().getFirst().rodadas().getFirst();
+        var jogo=primeira.partidas().getFirst();
+        var inicial=formato==TipoFormato.GRUPOS ? service.grupos(c.id()).getFirst().classificacaoAtual() : service.classificacao(c.id());
+        assertTrue(inicial.parcial());
+        assertEquals(0,inicial.tabela().stream().mapToInt(ClassificacaoParticipanteResponse::jogos).sum());
+        var salvo=service.registrarResultado(c.id(),jogo.id(),placar(1,0));
+        var grupoId=formato==TipoFormato.GRUPOS ? salvo.fases().getFirst().grupos().stream()
+                .filter(g -> g.participantes().stream().anyMatch(p -> p.id().equals(jogo.mandante().id()))).findFirst().orElseThrow().id() : null;
+        var parcial=formato==TipoFormato.GRUPOS ? service.classificacaoGrupo(c.id(),grupoId) : service.classificacao(c.id());
+        assertTrue(parcial.parcial()); assertEquals(1,parcial.rodada());
+        assertEquals(2,parcial.tabela().stream().mapToInt(ClassificacaoParticipanteResponse::jogos).sum());
+        assertEquals(3,parcial.tabela().stream().mapToInt(ClassificacaoParticipanteResponse::pontos).sum());
+        assertTrue(salvo.classificacaoPorRodada().isEmpty());
+        assertEquals(RodadaStatus.EM_ANDAMENTO,salvo.fases().getFirst().rodadas().getFirst().status());
+        service.registrarResultado(c.id(),jogo.id(),placar(2,1));
+        var editada=formato==TipoFormato.GRUPOS ? service.classificacaoGrupo(c.id(),grupoId) : service.classificacao(c.id());
+        assertEquals(2,editada.tabela().stream().mapToInt(ClassificacaoParticipanteResponse::jogos).sum());
+        assertEquals(3,editada.tabela().stream().mapToInt(ClassificacaoParticipanteResponse::golsPro).sum());
+        service.registrarResultado(c.id(),jogo.id(),placar(2,1));
+        assertEquals(editada,formato==TipoFormato.GRUPOS ? service.classificacaoGrupo(c.id(),grupoId) : service.classificacao(c.id()));
+        if(formato==TipoFormato.SWISS) assertThrows(RegraCampeonatoException.class,()->service.gerarProximaRodadaSwiss(c.id()));
+        if(formato==TipoFormato.GRUPOS || formato==TipoFormato.MISTA) {
+            assertThrows(RegraCampeonatoException.class,()->service.iniciarMataMata(c.id()));
+            assertThrows(RegraCampeonatoException.class,()->service.classificados(c.id(),4));
+        }
+        em.flush(); em.clear();
+        assertEquals(editada,formato==TipoFormato.GRUPOS ? service.classificacaoGrupo(c.id(),grupoId) : service.classificacao(c.id()));
+    }
+
+    @Test
+    void loteAguardaFechamentoEHistoricoSoMudaQuandoRodadaEncerra() {
+        var c=criar(6);
+        var inicio=service.iniciar(c.id(),new IniciarCampeonatoRequest(TipoFormato.LIGA,false,null,null));
+        var rodada=inicio.fases().getFirst().rodadas().getFirst();
+        var lote=rodada.partidas().stream().map(p -> new ResultadoPartidaRequest(p.id(),placar(1,0))).toList();
+        var salvo=service.registrarResultadosSemFinalizar(c.id(),rodada.id(),lote);
+        assertTrue(salvo.classificacaoAtual().parcial()); assertTrue(salvo.classificacaoPorRodada().isEmpty());
+        var fechada=service.finalizarRodada(c.id(),rodada.id());
+        var historico=fechada.classificacaoPorRodada();
+        assertEquals(1,historico.size()); assertFalse(historico.getFirst().parcial());
+        var segunda=fechada.fases().getFirst().rodadas().get(1);
+        service.registrarResultado(c.id(),segunda.partidas().getFirst().id(),placar(2,0));
+        var atual=service.buscar(c.id());
+        assertEquals(historico,atual.classificacaoPorRodada());
+        assertTrue(atual.classificacaoAtual().parcial());
+        for(var linha:atual.classificacaoAtual().tabela()) assertEquals(historico.getFirst().tabela().stream()
+                .filter(x -> x.participante().id().equals(linha.participante().id())).findFirst().orElseThrow().posicaoAtual(),linha.posicaoAnterior());
+    }
+
+    @Test
+    void woFuturoNaoAntecipaPontosDaParcial() {
+        var c=criar(6);
+        var inicio=service.iniciar(c.id(),new IniciarCampeonatoRequest(TipoFormato.LIGA,false,null,null));
+        var p=inicio.fases().getFirst().rodadas().getFirst().partidas().getFirst();
+        var resposta=service.desistirParticipante(c.id(),p.mandante().id());
+        assertEquals(2,resposta.classificacaoAtual().tabela().stream().mapToInt(ClassificacaoParticipanteResponse::jogos).sum());
+        assertEquals(3,resposta.classificacaoAtual().tabela().stream().mapToInt(ClassificacaoParticipanteResponse::pontos).sum());
+    }
+
+    @Test
+    void correcaoSwissRecalculaTabelaSemRemontarPareamentos() {
+        var c=criar(6);
+        var inicio=service.iniciar(c.id(),new IniciarCampeonatoRequest(TipoFormato.SWISS,false,null,3));
+        var primeira=inicio.fases().getFirst().rodadas().getFirst();
+        for(var p:primeira.partidas()) service.registrarResultado(c.id(),p.id(),placar(1,0));
+        var segunda=service.gerarProximaRodadaSwiss(c.id());
+        service.registrarResultado(c.id(),segunda.partidas().getFirst().id(),placar(2,0));
+        var pares=service.buscar(c.id()).fases().getFirst().rodadas().get(1);
+        service.registrarResultado(c.id(),primeira.partidas().getFirst().id(),placar(0,3));
+        var atual=service.buscar(c.id());
+        assertEquals(pares,atual.fases().getFirst().rodadas().get(1));
+        assertTrue(atual.classificacaoAtual().parcial());
+        assertEquals(8,atual.classificacaoAtual().tabela().stream().mapToInt(ClassificacaoParticipanteResponse::jogos).sum());
+        assertEquals(7,atual.classificacaoAtual().tabela().stream().mapToInt(ClassificacaoParticipanteResponse::golsPro).sum());
+    }
+
     private ResultadoRequest placar(int a,int b) { return new ResultadoRequest(a,b,null,null,false); }
     private CampeonatoResponse criar(int total) {
         var org = organizacoes.criar(new OrganizacaoRequest("Copa antiga",true));
