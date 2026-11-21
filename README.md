@@ -33,6 +33,9 @@ Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as 
 
 ## Avanco e desistencias
 
+O ADMIN pode retirar uma desistencia e reabrir W.O.s, respeitando jogos e
+etapas posteriores. Veja [endpoint e regras de reversao](docs/cancelar-desistencia.md).
+
 `PATCH /campeonatos/{id}/identificacao` permite ao ADMIN corrigir organizacao e
 edicao em qualquer status, preservando a competicao. Veja
 [contrato e regras](docs/identificacao-campeonato.md).

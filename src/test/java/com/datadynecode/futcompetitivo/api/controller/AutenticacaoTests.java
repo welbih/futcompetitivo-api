@@ -104,6 +104,7 @@ class AutenticacaoTests {
         verificarPermissoesOrganizacao(token, tokenAdmin);
         verificarPermissoesGruposManuais(token, tokenAdmin);
         verificarIdentificacaoCampeonato(token, tokenAdmin);
+        verificarCancelamentoDesistencia(token, tokenAdmin);
         assertEquals(400, login("errada", "segredo").statusCode());
         assertEquals(401, login("Usuario123!", "errado").statusCode());
         assertEquals(204, enviar("POST", "/auth/logout", "", null, "Bearer " + token).statusCode());
@@ -111,6 +112,34 @@ class AutenticacaoTests {
         assertEquals(200, enviar("GET", "/usuarios", null, null, null).statusCode());
         assertEquals(204, enviar("PATCH", "/usuarios/" + usuario.getId() + "/inativar", "", null, null).statusCode());
         assertEquals(400, login("Usuario123!", "segredo").statusCode());
+    }
+
+    private void verificarCancelamentoDesistencia(String tokenUser, String tokenAdmin) throws Exception {
+        var org=enviar("POST","/organizacoes","{\"nome\":\"Retorno do participante\",\"ativo\":true}","application/json","Bearer "+tokenAdmin);
+        Number orgId=JsonPath.read(org.body(),"$.id");
+        String cadastro="{\"organizacaoId\":"+orgId+",\"edicao\":1,\"participantes\":["
+                +"{\"jogadorId\":1,\"equipeId\":1},{\"jogadorId\":2,\"equipeId\":2},"
+                +"{\"jogadorId\":3,\"equipeId\":3},{\"jogadorId\":4,\"equipeId\":4}]}";
+        var criado=enviar("POST","/campeonatos",cadastro,"application/json","Bearer "+tokenAdmin);
+        assertEquals(201,criado.statusCode(),criado.body());
+        Number id=JsonPath.read(criado.body(),"$.id");
+        String base="/campeonatos/"+id;
+        var iniciado=enviar("POST",base+"/iniciar","{\"formato\":\"LIGA\"}","application/json","Bearer "+tokenAdmin);
+        assertEquals(200,iniciado.statusCode(),iniciado.body());
+        Number participante=JsonPath.read(iniciado.body(),"$.fases[0].rodadas[0].partidas[0].mandante.id");
+        String rota=base+"/participantes/"+participante+"/desistencia";
+        assertEquals(200,enviar("POST",base+"/participantes/"+participante+"/desistir",null,null,"Bearer "+tokenAdmin).statusCode());
+        assertEquals(401,enviar("DELETE",rota,null,null,null).statusCode());
+        assertEquals(401,enviar("DELETE",rota,null,null,"Bearer invalido").statusCode());
+        assertEquals(403,enviar("DELETE",rota,null,null,"Bearer "+tokenUser).statusCode());
+        var voltou=enviar("DELETE",rota,null,null,"Bearer "+tokenAdmin);
+        assertEquals(200,voltou.statusCode(),voltou.body());
+        assertEquals(iniciado.body(),voltou.body());
+        assertEquals(voltou.body(),enviar("DELETE",rota,null,null,"Bearer "+tokenAdmin).body());
+        var estranho=enviar("DELETE",base+"/participantes/9223372036854775807/desistencia",null,null,"Bearer "+tokenAdmin);
+        assertEquals(400,estranho.statusCode());
+        assertTrue(estranho.headers().firstValue("Content-Type").orElseThrow().contains("application/problem+json"));
+        assertEquals(404,enviar("DELETE","/campeonatos/9223372036854775807/participantes/"+participante+"/desistencia",null,null,"Bearer "+tokenAdmin).statusCode());
     }
 
     private void verificarIdentificacaoCampeonato(String tokenUser, String tokenAdmin) throws Exception {

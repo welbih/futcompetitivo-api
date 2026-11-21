@@ -35,6 +35,7 @@ public class ResourceServerConfig {
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.GET, "/jogadores/{id}/estatisticas").permitAll()
                 .requestMatchers(HttpMethod.GET, "/campeonatos/{id}/eventos").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/campeonatos/{id}/participantes/{participanteId}/desistencia").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}",
                         "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
