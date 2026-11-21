@@ -28,6 +28,8 @@ public class CampeonatoService {
     private final GeradorEliminatorioService eliminatorio;
     private final ValidadorResultadoEliminatorioService validadorEliminatorio;
     private final ClassificacaoGruposService classificacaoGrupos;
+    private final ClassificacaoAtualService classificacoesAtuais;
+    private final EventosCampeonatoService eventos;
 
     public List<CampeonatoResponse> listar() {
         return repository.findAll(Sort.by("id")).stream().map(mapper::toResponse).toList();
@@ -37,47 +39,262 @@ public class CampeonatoService {
 
     @Transactional
     public void deletar(Long id) {
-        repository.delete(buscarEntidade(id));
+        repository.delete(buscarParaAtualizar(id));
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.CAMPEONATO_EXCLUIDO);
     }
 
     @Transactional
     public CampeonatoResponse criar(CampeonatoRequest request) {
         Campeonato campeonato = new Campeonato();
         preencher(campeonato, request);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_CRIADO);
     }
 
     @Transactional
     public CampeonatoResponse atualizar(Long id, CampeonatoRequest request) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         exigir(campeonato.getStatus() == CampeonatoStatus.CRIADO, "Campeonato já iniciado.");
         preencher(campeonato, request);
-        return mapper.toResponse(repository.saveAndFlush(campeonato));
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_ALTERADO);
     }
 
     @Transactional
     public CampeonatoResponse iniciar(Long id, IniciarCampeonatoRequest request) {
-        Campeonato campeonato = buscarEntidade(id);
-        exigir(campeonato.getStatus() == CampeonatoStatus.CRIADO, "Campeonato já iniciado.");
-        campeonato.getParticipantes().forEach(this::validarParticipante);
-        exigir(campeonato.getOrganizacao().isAtivo(), "Organização deve estar ativa.");
-        Collections.shuffle(campeonato.getParticipantes());
+        Campeonato campeonato = buscarParaAtualizar(id);
+        validarInicio(campeonato);
+        if (request.formato() != TipoFormato.ELIMINATORIO) Collections.shuffle(campeonato.getParticipantes());
         Fase fase = geradorFases.gerar(campeonato.getParticipantes(), request);
         campeonato.getFases().add(fase);
         if (fase.getTipo() == TipoFase.SWISS)
             geradorSwiss.gerar(fase, campeonato.getParticipantes(), null);
         campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarComGruposManuais(Long id, IniciarGruposManuaisRequest request) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        validarInicio(campeonato);
+        Fase fase = geradorFases.gerarGruposManuais(campeonato.getParticipantes(), request);
+        campeonato.getFases().add(fase);
+        campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarEliminatorioManual(Long id, IniciarEliminatorioManualRequest request) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        validarInicio(campeonato);
+        exigir(request != null && request.confrontosPrimeiraRodada() != null
+                && !request.confrontosPrimeiraRodada().isEmpty(), "Informe os confrontos da primeira rodada.");
+        Fase fase = new Fase();
+        fase.setOrdem(1);
+        fase.setFormatoEliminatorio(request.formatoEliminatorio());
+        fase.setFormaGeracaoMataMata(request.formaGeracaoMataMata());
+        fase.setDisputaTerceiroLugar(Boolean.TRUE.equals(request.disputaTerceiroLugar()));
+        eliminatorio.gerar(fase, campeonato.getParticipantes(), request.confrontosPrimeiraRodada());
+        campeonato.getFases().add(fase);
+        campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+        finalizarRodadasResolvidas(campeonato);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarLigaParcialManual(Long id, IniciarLigaParcialManualRequest request) {
+        Campeonato campeonato=buscarParaAtualizar(id);
+        validarInicio(campeonato);
+        Fase fase=geradorFases.gerarLigaParcialManual(campeonato.getParticipantes(),request);
+        campeonato.getFases().add(fase);
+        campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.CAMPEONATO_INICIADO);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarMataMata(Long id) {
+        return iniciarMataMata(id, null);
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarMataMata(Long id, IniciarMataMataRequest request) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        Fase classificatoria = exigirAguardandoMataMata(campeonato);
+        Map<Long, Long> substituicoes = new HashMap<>();
+        if (request != null && request.substituicoes() != null) {
+            for (var substituicao : request.substituicoes()) {
+                exigir(substituicao != null && substituicao.desistenteId() != null && substituicao.substitutoId() != null,
+                        "Informe desistenteId e substitutoId.");
+                exigir(substituicoes.putIfAbsent(substituicao.desistenteId(), substituicao.substitutoId()) == null,
+                        "Não repita a substituição de uma vaga.");
+            }
+        }
+        List<Participante> classificados = selecionarClassificados(campeonato, classificatoria, substituicoes);
+        Fase mataMata = new Fase();
+        mataMata.setOrdem(campeonato.getFases().size() + 1);
+        mataMata.setDisputaTerceiroLugar(classificatoria.isDisputaTerceiroLugar());
+        mataMata.setFormatoEliminatorio(classificatoria.getFormatoEliminatorio());
+        mataMata.setFormaGeracaoMataMata(classificatoria.getFormaGeracaoMataMata());
+        eliminatorio.gerar(mataMata, classificados, request == null ? null : request.confrontosPrimeiraRodada());
+        campeonato.getFases().add(mataMata);
+        campeonato.getSubstituicoesMataMata().putAll(substituicoes);
+        return salvarNotificando(campeonato,MotivoAtualizacaoCampeonato.MATA_MATA_INICIADO);
+    }
+
+    public List<VagaMataMataResponse> vagasMataMata(Long id) {
+        Campeonato campeonato = buscarEntidade(id);
+        Fase fase = exigirAguardandoMataMata(campeonato);
+        var classificados = classificadosOriginais(campeonato, fase);
+        var fixos = classificados.stream().map(Participante::getId).collect(java.util.stream.Collectors.toSet());
+        var respostas = mapper.toResponse(campeonato).participantes();
+        return classificados.stream().filter(p -> campeonato.getParticipantesDesistentes().contains(p.getId()))
+                .map(p -> new VagaMataMataResponse(p.getId(), grupoDoParticipante(fase, p.getId()),
+                        respostas.stream().filter(c -> !fixos.contains(c.id())
+                                && !campeonato.getParticipantesDesistentes().contains(c.id())
+                                && Objects.equals(grupoDoParticipante(fase, c.id()), grupoDoParticipante(fase, p.getId())))
+                                .toList())).toList();
+    }
+
+    @Transactional
+    public CampeonatoResponse iniciarRodadaMataMata(Long id, Long rodadaId) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        exigir(campeonato.getStatus() == CampeonatoStatus.EM_ANDAMENTO, "Campeonato não está em andamento.");
+        Rodada rodada = rodadas(campeonato).stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
+                .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
+        Fase fase = faseDaRodada(campeonato, rodada);
+        exigir(fase.getTipo() == TipoFase.ELIMINATORIA, "A solicitação de início da rodada é exclusiva do mata-mata.");
+        exigirFasesAnterioresFinalizadas(campeonato, fase);
+        exigir(rodada.getStatus() == RodadaStatus.PENDENTE, "Rodada já iniciada ou finalizada.");
+        exigir(fase.getRodadas().stream().filter(r -> r.getNumero() < rodada.getNumero())
+                .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA
+                        && r.getPartidas().stream().allMatch(Partida::isFinalizada)), "Rodada anterior ainda não finalizada.");
+        eliminatorio.prepararRodada(fase, rodada, campeonato.getParticipantesDesistentes());
+        aplicarWo(campeonato);
+        finalizarRodadasResolvidas(campeonato);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_ABERTA,rodadaId,null);
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
     @Transactional
+    public CampeonatoResponse desistirParticipante(Long id, Long participanteId) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        exigir(campeonato.getStatus() == CampeonatoStatus.EM_ANDAMENTO, "A desistência exige campeonato em andamento.");
+        exigir(campeonato.getParticipantes().stream().anyMatch(p -> p.getId().equals(participanteId)),
+                "Participante não pertence ao campeonato.");
+        // Preserva as vagas ja conquistadas: um W.O. duplo posterior nao promove outro jogador automaticamente.
+        if (campeonato.getClassificadosBase().isEmpty() && campeonato.getFases().size() == 1) {
+            Fase classificatoria = campeonato.getFases().getFirst();
+            if (classificatoria.getQuantidadeClassificados() != null && classificatoria.getRodadas().stream()
+                    .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA && r.getPartidas().stream().allMatch(Partida::isFinalizada))) {
+                campeonato.getClassificadosBase().addAll(classificadosOriginais(campeonato,classificatoria).stream().map(Participante::getId).toList());
+            }
+        }
+        boolean novaDesistencia = campeonato.getParticipantesDesistentes().add(participanteId);
+        Set<Rodada> alteradas = aplicarWo(campeonato);
+        // Recalcula snapshots que possam conter W.O. agora duplo (0x0), sem modificar jogos disputados.
+        for (Fase fase : campeonato.getFases()) {
+            var finalizadas = fase.getRodadas().stream().filter(r -> r.getStatus() == RodadaStatus.FINALIZADA).toList();
+            if (finalizadas.stream().anyMatch(alteradas::contains) && fase.getTipo() != TipoFase.ELIMINATORIA) {
+                if (fase.getTipo() == TipoFase.GRUPOS) classificacaoGrupos.recalcular(fase, 1);
+                else recalcularClassificacoes(campeonato, fase.getRodadas(), 1);
+            }
+        }
+        finalizarRodadasResolvidas(campeonato);
+        if(novaDesistencia || !alteradas.isEmpty()) eventos.registrar(id,MotivoAtualizacaoCampeonato.DESISTENCIA_REGISTRADA);
+        return mapper.toResponse(repository.saveAndFlush(campeonato));
+    }
+
+    private Set<Rodada> aplicarWo(Campeonato campeonato) {
+        Set<Rodada> alteradas = new HashSet<>();
+        for (Rodada rodada : rodadas(campeonato)) {
+            for (Partida partida : rodada.getPartidas()) {
+                if (partida.getStatus() == StatusPartida.CANCELADA || (partida.isFinalizada() && !partida.isWo())) continue;
+                boolean mandante = campeonato.getParticipantesDesistentes().contains(partida.getMandante().getId());
+                boolean visitante = campeonato.getParticipantesDesistentes().contains(partida.getVisitante().getId());
+                if (!mandante && !visitante) continue;
+                int golsMandante = mandante ? 0 : 3;
+                int golsVisitante = visitante ? 0 : 3;
+                if (partida.isWo() && partida.isFinalizada() && partida.getResultado().getGolsMandante() == golsMandante
+                        && partida.getResultado().getGolsVisitante() == golsVisitante) continue;
+                partida.setResultado(new Resultado(false, golsMandante, golsVisitante, null, null));
+                partida.setStatus(StatusPartida.FINALIZADA);
+                partida.setWo(true);
+                alteradas.add(rodada);
+            }
+        }
+        return alteradas;
+    }
+
+    private void finalizarRodadasResolvidas(Campeonato campeonato) {
+        for (Fase fase : campeonato.getFases()) {
+            for (Rodada rodada : fase.getRodadas()) {
+                if (rodada.getStatus() == RodadaStatus.EM_ANDAMENTO && rodada.getPartidas().stream().allMatch(Partida::isFinalizada))
+                    finalizar(campeonato, fase.getRodadas(), rodada);
+            }
+        }
+    }
+
+    private Fase exigirAguardandoMataMata(Campeonato campeonato) {
+        exigir(campeonato.getStatus() == CampeonatoStatus.EM_ANDAMENTO, "Campeonato não está em andamento.");
+        exigir(campeonato.getFases().size() == 1, "O mata-mata já foi iniciado ou não há fase classificatória.");
+        Fase fase = campeonato.getFases().getFirst();
+        exigir(fase.getQuantidadeClassificados() != null, "O formato do campeonato não prevê mata-mata após a classificação.");
+        exigir(!fase.getRodadas().isEmpty() && fase.getRodadas().stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA
+                && r.getPartidas().stream().allMatch(Partida::isFinalizada)), "Todos os jogos da fase classificatória devem estar finalizados.");
+        return fase;
+    }
+
+    private List<Participante> classificadosOriginais(Campeonato campeonato, Fase fase) {
+        if (!campeonato.getClassificadosBase().isEmpty()) {
+            Map<Long, Participante> porId = new HashMap<>();
+            campeonato.getParticipantes().forEach(p -> porId.put(p.getId(),p));
+            return campeonato.getClassificadosBase().stream().map(porId::get).toList();
+        }
+        return fase.getTipo() == TipoFase.GRUPOS ? classificacaoGrupos.classificados(fase, campeonato.getParticipantes())
+                : ultima(campeonato).getTabela().stream().limit(fase.getQuantidadeClassificados())
+                        .map(ClassificacaoParticipante::getParticipante).toList();
+    }
+
+    private Long grupoDoParticipante(Fase fase, Long participanteId) {
+        return fase.getGrupos().stream().filter(g -> g.getParticipantes().stream().anyMatch(p -> p.getId().equals(participanteId)))
+                .map(Grupo::getId).findFirst().orElse(null);
+    }
+
+    private List<Participante> selecionarClassificados(Campeonato campeonato, Fase fase, Map<Long, Long> substituicoes) {
+        var originais = classificadosOriginais(campeonato, fase);
+        var vagas = originais.stream().filter(p -> campeonato.getParticipantesDesistentes().contains(p.getId()))
+                .map(Participante::getId).collect(java.util.stream.Collectors.toSet());
+        exigir(substituicoes.keySet().equals(vagas), "Defina manualmente o substituto de cada classificado desistente, sem substituir outras vagas.");
+        Map<Long, Participante> porId = new HashMap<>();
+        campeonato.getParticipantes().forEach(p -> porId.put(p.getId(), p));
+        List<Participante> selecionados = new ArrayList<>();
+        for (Participante original : originais) {
+            Long selecionadoId = substituicoes.getOrDefault(original.getId(), original.getId());
+            exigir(porId.containsKey(selecionadoId) && !campeonato.getParticipantesDesistentes().contains(selecionadoId),
+                    "O substituto deve pertencer ao campeonato e não pode ser desistente.");
+            exigir(Objects.equals(grupoDoParticipante(fase, original.getId()), grupoDoParticipante(fase, selecionadoId)),
+                    "A substituição deve preservar a vaga do mesmo grupo.");
+            selecionados.add(porId.get(selecionadoId));
+        }
+        exigir(selecionados.stream().map(Participante::getId).distinct().count() == selecionados.size(),
+                "O mesmo participante não pode ocupar duas vagas no mata-mata.");
+        return selecionados;
+    }
+
+    private void validarInicio(Campeonato campeonato) {
+        exigir(campeonato.getStatus() == CampeonatoStatus.CRIADO, "Campeonato já iniciado.");
+        campeonato.getParticipantes().forEach(this::validarParticipante);
+        exigir(campeonato.getOrganizacao().isAtivo(), "Organização deve estar ativa.");
+    }
+
+    @Transactional
     public RodadaResponse gerarProximaRodadaSwiss(Long id) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         exigir(campeonato.getStatus() == CampeonatoStatus.EM_ANDAMENTO, "Campeonato não está em andamento.");
         Fase fase = campeonato.getFases().getFirst();
         exigir(fase.getTipo() == TipoFase.SWISS, "Campeonato não utiliza formato Swiss.");
-        geradorSwiss.gerar(fase, campeonato.getParticipantes(), ultima(campeonato));
+        geradorSwiss.gerar(fase, campeonato.getParticipantes().stream()
+                .filter(p -> !campeonato.getParticipantesDesistentes().contains(p.getId())).toList(), ultima(campeonato));
         Campeonato salvo = repository.saveAndFlush(campeonato);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_ABERTA,salvo.getFases().getFirst().getRodadas().getLast().getId(),null);
         return mapper.toResponse(salvo.getFases().getFirst().getRodadas().getLast());
     }
 
@@ -88,7 +305,7 @@ public class CampeonatoService {
 
     private CampeonatoResponse registrarResultado(Long id, Long partidaId, ResultadoRequest request,
             boolean finalizarAutomaticamente, boolean validarConfrontos) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         exigir(campeonato.getStatus() != CampeonatoStatus.CRIADO, "Campeonato ainda não iniciado.");
         List<Rodada> rodadas = rodadas(campeonato);
         Rodada rodada = rodadas.stream().filter(r -> r.getPartidas().stream()
@@ -103,7 +320,11 @@ public class CampeonatoService {
         exigir(rodadas.stream().filter(r -> r.getNumero() < rodada.getNumero())
                 .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Rodada anterior ainda não finalizada.");
         validarResultado(request, fase.getTipo());
-        if (validarConfrontos) validadorEliminatorio.validar(fase, Map.of(partidaId, request));
+        exigir(!partida.isWo() || (Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
+                && Objects.equals(partida.getResultado().getGolsVisitante(), request.golsVisitante())
+                && request.penaltisMandante() == null && request.penaltisVisitante() == null), "O placar de W.O. não pode ser alterado manualmente.");
+        if (validarConfrontos && !partida.isWo()) validadorEliminatorio.validar(fase, Map.of(partidaId, request));
+        boolean videoAlterado = !Objects.equals(partida.getYoutubeUrl(),request.youtubeUrl());
         partida.setYoutubeUrl(request.youtubeUrl());
         if (partida.isFinalizada()
                 && Objects.equals(partida.getResultado().getGolsMandante(), request.golsMandante())
@@ -113,8 +334,10 @@ public class CampeonatoService {
             if (finalizarAutomaticamente && rodada.getStatus() == RodadaStatus.EM_ANDAMENTO
                     && rodada.getPartidas().stream().allMatch(Partida::isFinalizada)) {
                 finalizar(campeonato, rodadas, rodada);
+                eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
                 return mapper.toResponse(repository.saveAndFlush(campeonato));
             }
+            if(videoAlterado) eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
             return mapper.toResponse(campeonato);
         }
         if (fase.getQuantidadeClassificados() != null && campeonato.getFases().size() > 1) {
@@ -125,6 +348,7 @@ public class CampeonatoService {
         partida.setResultado(new Resultado(Boolean.TRUE.equals(request.golDeOuro()), request.golsMandante(), request.golsVisitante(),
                 request.penaltisMandante(), request.penaltisVisitante()));
         partida.setStatus(StatusPartida.FINALIZADA);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADO_ALTERADO,rodada.getId(),partidaId);
         if (rodada.getStatus() == RodadaStatus.FINALIZADA
                 || (finalizarAutomaticamente && rodada.getPartidas().stream().allMatch(Partida::isFinalizada))) {
             finalizar(campeonato, rodadas, rodada);
@@ -135,7 +359,7 @@ public class CampeonatoService {
     @Transactional
     public CampeonatoResponse registrarResultadosSemFinalizar(Long id, Long rodadaId,
             List<ResultadoPartidaRequest> resultados) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         Rodada rodada = rodadas(campeonato).stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
                 .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
         exigir(rodada.getStatus() == RodadaStatus.EM_ANDAMENTO, "Rodada deve estar em andamento.");
@@ -149,12 +373,13 @@ public class CampeonatoService {
         resultados.forEach(r -> novosResultados.put(r.partidaId(), r.resultado()));
         validadorEliminatorio.validar(faseDaRodada(campeonato, rodada), novosResultados);
         resultados.forEach(r -> registrarResultado(id, r.partidaId(), r.resultado(), false, false));
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RESULTADOS_ALTERADOS,rodadaId,null);
         return mapper.toResponse(campeonato);
     }
 
     @Transactional
     public CampeonatoResponse finalizarRodada(Long id, Long rodadaId) {
-        Campeonato campeonato = buscarEntidade(id);
+        Campeonato campeonato = buscarParaAtualizar(id);
         List<Rodada> rodadas = rodadas(campeonato);
         Rodada rodada = rodadas.stream().filter(r -> r.getId().equals(rodadaId)).findFirst()
                 .orElseThrow(() -> naoEncontrado("Rodada", rodadaId));
@@ -167,6 +392,7 @@ public class CampeonatoService {
         exigir(rodada.getPartidas().stream().allMatch(Partida::isFinalizada),
                 "Todas as partidas devem ter resultado antes de finalizar a rodada.");
         finalizar(campeonato, rodadas, rodada);
+        eventos.registrar(id,MotivoAtualizacaoCampeonato.RODADA_FINALIZADA,rodadaId,null);
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
@@ -189,8 +415,14 @@ public class CampeonatoService {
         rodada.setStatus(RodadaStatus.FINALIZADA);
         Fase fase = faseDaRodada(campeonato, rodada);
         if (fase.getTipo() == TipoFase.ELIMINATORIA) {
-            rodadas.stream().filter(r -> r.getNumero() == rodada.getNumero() + 1).findFirst()
-                    .ifPresent(proxima -> eliminatorio.prepararRodada(fase, proxima));
+            rodadas.stream().filter(r -> r.getNumero() == rodada.getNumero() + 1
+                    && r.getStatus() != RodadaStatus.FINALIZADA)
+                    .findFirst().ifPresent(proxima -> {
+                        eliminatorio.prepararRodada(fase, proxima, campeonato.getParticipantesDesistentes());
+                        aplicarWo(campeonato);
+                        if (proxima.getPartidas().stream().allMatch(Partida::isFinalizada))
+                            finalizar(campeonato, rodadas, proxima);
+                    });
             if (rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA))
                 campeonato.setStatus(CampeonatoStatus.FINALIZADO);
             return;
@@ -201,17 +433,17 @@ public class CampeonatoService {
                 || fase.getRodadas().size() == fase.getTotalRodadas();
         if (todasGeradas && rodadas.stream().allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA)) {
             if (fase.getQuantidadeClassificados() != null) {
-                List<Participante> classificados = fase.getTipo() == TipoFase.GRUPOS
-                        ? classificacaoGrupos.classificados(fase, campeonato.getParticipantes())
-                        : ultima(campeonato).getTabela().stream().limit(fase.getQuantidadeClassificados())
-                                .map(ClassificacaoParticipante::getParticipante).toList();
-                if (campeonato.getFases().size() == 1) {
-                    Fase mataMata = new Fase();
-                    mataMata.setOrdem(2);
-                    mataMata.setDisputaTerceiroLugar(fase.isDisputaTerceiroLugar());
-                    eliminatorio.gerar(mataMata, classificados);
-                    campeonato.getFases().add(mataMata);
-                } else eliminatorio.atualizarParticipantes(campeonato.getFases().getLast(), classificados);
+                if (campeonato.getFases().size() > 1) {
+                    var classificados = selecionarClassificados(campeonato, fase, campeonato.getSubstituicoesMataMata());
+                    Fase mataMata = campeonato.getFases().getLast();
+                    if (mataMata.isConfrontosManuais() || mataMata.getFormaGeracaoMataMata() == FormaGeracaoMataMata.ALEATORIA) {
+                        var atuais = mataMata.getConfrontos().stream().filter(c -> c.getOrigemUm() == null && !c.isTerceiroLugar())
+                                .flatMap(c -> java.util.stream.Stream.of(c.getParticipanteUm(), c.getParticipanteDois()))
+                                .filter(Objects::nonNull).map(Participante::getId).collect(java.util.stream.Collectors.toSet());
+                        exigir(atuais.equals(classificados.stream().map(Participante::getId).collect(java.util.stream.Collectors.toSet())),
+                                "A correção altera os participantes de uma chave manual ou já sorteada.");
+                    } else eliminatorio.atualizarParticipantes(mataMata, classificados);
+                }
             } else campeonato.setStatus(CampeonatoStatus.FINALIZADO);
         }
         rodadas.stream().filter(r -> r.getNumero() > rodada.getNumero()
@@ -239,7 +471,7 @@ public class CampeonatoService {
         Campeonato campeonato = buscarEntidade(id);
         exigir(campeonato.getFases().isEmpty() || campeonato.getFases().getFirst().getTipo() != TipoFase.GRUPOS,
                 "Consulte a classificação de cada grupo pelo endpoint de grupos.");
-        Classificacao classificacao = ultima(campeonato);
+        Classificacao classificacao = classificacoesAtuais.atual(campeonato);
         if (classificacao == null) throw new RegraCampeonatoException("Não há classificação disponível.");
         return mapper.toResponse(classificacao);
     }
@@ -247,6 +479,14 @@ public class CampeonatoService {
     public List<ParticipanteResponse> classificados(Long id, int quantidade) {
         exigir(quantidade > 0, "quantidade deve ser positiva.");
         Campeonato campeonato = buscarEntidade(id);
+        if (!campeonato.getClassificadosBase().isEmpty()) {
+            var participantes = mapper.toResponse(campeonato).participantes();
+            return campeonato.getClassificadosBase().stream().limit(quantidade)
+                    .map(participanteId -> participantes.stream().filter(p -> p.id().equals(participanteId)).findFirst().orElseThrow()).toList();
+        }
+        if(!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getQuantidadeClassificados()!=null)
+            exigir(campeonato.getFases().getFirst().getRodadas().stream().allMatch(r -> r.getStatus()==RodadaStatus.FINALIZADA),
+                    "Fase classificatória ainda não finalizada.");
         if (!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS) {
             exigir(campeonato.getFases().getFirst().getRodadas().stream()
                     .allMatch(r -> r.getStatus() == RodadaStatus.FINALIZADA), "Fase de grupos ainda não finalizada.");
@@ -264,14 +504,15 @@ public class CampeonatoService {
         Campeonato campeonato = buscarEntidade(id);
         exigir(!campeonato.getFases().isEmpty() && campeonato.getFases().getFirst().getTipo() == TipoFase.GRUPOS,
                 "Campeonato não utiliza fase de grupos.");
-        return campeonato.getFases().getFirst().getGrupos().stream().map(mapper::toResponse).toList();
+        Fase fase=campeonato.getFases().getFirst();
+        return fase.getGrupos().stream().map(g -> mapper.toResponse(fase,g)).toList();
     }
 
     public ClassificacaoResponse classificacaoGrupo(Long id, Long grupoId) {
         GrupoResponse grupo = grupos(id).stream().filter(g -> g.id().equals(grupoId)).findFirst()
                 .orElseThrow(() -> naoEncontrado("Grupo", grupoId));
-        exigir(!grupo.classificacaoPorRodada().isEmpty(), "Não há classificação disponível para o grupo.");
-        return grupo.classificacaoPorRodada().getLast();
+        exigir(grupo.classificacaoAtual()!=null, "Não há classificação disponível para o grupo.");
+        return grupo.classificacaoAtual();
     }
 
     private void preencher(Campeonato campeonato, CampeonatoRequest request) {
@@ -300,8 +541,10 @@ public class CampeonatoService {
         exigir(campeonato.getStatus() == CampeonatoStatus.FINALIZADO, "Campeonato ainda não finalizado.");
         Fase fase = campeonato.getFases().getLast();
         exigir(fase.getTipo() == TipoFase.ELIMINATORIA, "Campeonato não utiliza formato eliminatório.");
+        Participante campeao = eliminatorio.campeao(fase, campeonato.getParticipantesDesistentes());
+        exigir(campeao != null, "Não há vencedor elegível: todos os finalistas desistiram.");
         return mapper.toResponse(campeonato).participantes().stream()
-                .filter(p -> p.id().equals(eliminatorio.campeao(fase).getId())).findFirst().orElseThrow();
+                .filter(p -> p.id().equals(campeao.getId())).findFirst().orElseThrow();
     }
 
     public ParticipanteResponse terceiroLugar(Long id) {
@@ -310,7 +553,9 @@ public class CampeonatoService {
         Fase fase = campeonato.getFases().getLast();
         exigir(fase.getTipo() == TipoFase.ELIMINATORIA && fase.isDisputaTerceiroLugar(),
                 "Campeonato não possui disputa de terceiro lugar.");
-        Long participanteId = eliminatorio.terceiroColocado(fase).getId();
+        Participante terceiro = eliminatorio.terceiroColocado(fase, campeonato.getParticipantesDesistentes());
+        exigir(terceiro != null, "Não há terceiro colocado elegível.");
+        Long participanteId = terceiro.getId();
         return mapper.toResponse(campeonato).participantes().stream()
                 .filter(p -> p.id().equals(participanteId)).findFirst().orElseThrow();
     }
@@ -327,6 +572,12 @@ public class CampeonatoService {
         exigir(!Boolean.TRUE.equals(request.golDeOuro()), "Gol de ouro não é utilizado nas fases de liga ou Swiss.");
     }
 
+    private CampeonatoResponse salvarNotificando(Campeonato campeonato,MotivoAtualizacaoCampeonato motivo) {
+        Campeonato salvo=repository.saveAndFlush(campeonato);
+        eventos.registrar(salvo.getId(),motivo);
+        return mapper.toResponse(salvo);
+    }
+
     private Classificacao ultima(Campeonato campeonato) {
         return campeonato.getClassificacaoPorRodada().stream()
                 .max(Comparator.comparingInt(Classificacao::getRodada)).orElse(null);
@@ -334,6 +585,10 @@ public class CampeonatoService {
 
     private Campeonato buscarEntidade(Long id) {
         return repository.findById(id).orElseThrow(() -> naoEncontrado("Campeonato", id));
+    }
+
+    private Campeonato buscarParaAtualizar(Long id) {
+        return repository.buscarParaAtualizar(id).orElseThrow(() -> naoEncontrado("Campeonato", id));
     }
 
     private ResponseStatusException naoEncontrado(String recurso, Long id) {

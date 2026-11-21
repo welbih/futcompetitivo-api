@@ -34,7 +34,7 @@ class CampeonatoServiceTests {
     @EnumSource(value = TipoFormato.class, names = {"LIGA", "ELIMINATORIO", "GRUPOS"})
     void deletaEstruturaDoCampeonatoEPreservaCadastros(TipoFormato formato) {
         var org = organizacoes.criar(new OrganizacaoRequest("Excluir campeonato", true));
-        var selecao = selecoes(criarParticipantes(4));
+        var selecao = selecoes(criarParticipantes(formato == TipoFormato.GRUPOS ? 6 : 4));
         var criado = service.criar(new CampeonatoRequest(org.id(), 2026, selecao));
         var iniciado = service.iniciar(criado.id(), new IniciarCampeonatoRequest(
                 formato, false, null, null, formato == TipoFormato.GRUPOS ? 4 : null));

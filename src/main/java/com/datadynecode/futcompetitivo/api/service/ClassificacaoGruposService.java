@@ -30,24 +30,22 @@ public class ClassificacaoGruposService {
     }
 
     public List<Participante> classificados(Fase fase, List<Participante> ordemSorteada) {
-        int vagas = fase.getQuantidadeClassificados() / 2;
-        var a = fase.getGrupos().getFirst().getClassificacaoPorRodada().getLast().getTabela();
-        var b = fase.getGrupos().getLast().getClassificacaoPorRodada().getLast().getTabela();
-        List<ClassificacaoParticipante> primeiro = a;
-        List<ClassificacaoParticipante> segundo = b;
-        ClassificacaoParticipante extra = null;
-        if (fase.getQuantidadeClassificados() % 2 != 0) {
-            if (a.size() <= vagas) extra = b.get(vagas);
-            else if (b.size() <= vagas) extra = a.get(vagas);
-            else extra = comparar(a.get(vagas), b.get(vagas), ordemSorteada) <= 0 ? a.get(vagas) : b.get(vagas);
-            if (b.contains(extra)) { primeiro = b; segundo = a; }
-        }
+        var tabelas = new ArrayList<>(fase.getGrupos().stream()
+                .map(g -> g.getClassificacaoPorRodada().getLast().getTabela()).toList());
+        int vagas = fase.getQuantidadeClassificados() / tabelas.size();
+        int restantes = fase.getQuantidadeClassificados() % tabelas.size();
+        var extras = tabelas.stream().filter(t -> t.size()>vagas).map(t -> t.get(vagas))
+                .sorted((a,b) -> comparar(a,b,ordemSorteada)).limit(restantes).toList();
+        // Grupos com vaga extra recebem prioridade na intercalacao, preservando a regra anterior de dois grupos.
+        tabelas.sort(Comparator.comparingInt(t -> {
+            int indice = t.size()>vagas ? extras.indexOf(t.get(vagas)) : -1;
+            return indice<0 ? extras.size() : indice;
+        }));
         List<Participante> selecionados = new ArrayList<>();
         for (int i = 0; i < vagas; i++) {
-            selecionados.add(primeiro.get(i).getParticipante());
-            selecionados.add(segundo.get(i).getParticipante());
+            for (var tabela : tabelas) selecionados.add(tabela.get(i).getParticipante());
         }
-        if (extra != null) selecionados.add(extra.getParticipante());
+        extras.forEach(extra -> selecionados.add(extra.getParticipante()));
         return selecionados;
     }
 

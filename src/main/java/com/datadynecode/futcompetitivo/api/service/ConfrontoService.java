@@ -9,12 +9,16 @@ import org.springframework.stereotype.Service;
 public class ConfrontoService {
 
     public void gerarPartidas(Confronto confronto) {
+        gerarPartidas(confronto, java.util.Set.of());
+    }
+
+    public void gerarPartidas(Confronto confronto, java.util.Set<Long> desistentes) {
         if (!confronto.getPartidas().isEmpty())
             throw new RegraCampeonatoException("As partidas do confronto já foram geradas.");
         if (confronto.getOrigemUm() != null)
-            confronto.setParticipanteUm(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm()) : vencedor(confronto.getOrigemUm()));
+            confronto.setParticipanteUm(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm(), desistentes) : vencedor(confronto.getOrigemUm(), desistentes));
         if (confronto.getOrigemDois() != null)
-            confronto.setParticipanteDois(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois()) : vencedor(confronto.getOrigemDois()));
+            confronto.setParticipanteDois(confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois(), desistentes) : vencedor(confronto.getOrigemDois(), desistentes));
         if (confronto.getParticipanteUm() == null || confronto.getParticipanteDois() == null) return;
         if (confronto.getTipo() != TipoConfronto.JOGO_UNICO && confronto.getTipo() != TipoConfronto.IDA_E_VOLTA)
             throw new RegraCampeonatoException("Formato de confronto ainda não implementado: " + confronto.getTipo());
@@ -24,7 +28,12 @@ public class ConfrontoService {
     }
 
     public Participante perdedor(Confronto confronto) {
-        Participante vencedor = vencedor(confronto);
+        return perdedor(confronto, java.util.Set.of());
+    }
+
+    public Participante perdedor(Confronto confronto, java.util.Set<Long> desistentes) {
+        Participante vencedor = vencedor(confronto, desistentes);
+        if (vencedor == null) return null;
         if (confronto.getParticipanteUm() == null || confronto.getParticipanteDois() == null)
             throw new RegraCampeonatoException("Confronto com folga não possui perdedor.");
         return vencedor.getId().equals(confronto.getParticipanteUm().getId())
@@ -32,14 +41,26 @@ public class ConfrontoService {
     }
 
     public Participante vencedor(Confronto confronto) {
+        return vencedor(confronto, java.util.Set.of());
+    }
+
+    public Participante vencedor(Confronto confronto, java.util.Set<Long> desistentes) {
         Participante um = confronto.getParticipanteUm();
         Participante dois = confronto.getParticipanteDois();
         if (um == null && confronto.getOrigemUm() != null)
-            um = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm()) : vencedor(confronto.getOrigemUm());
+            um = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemUm(), desistentes) : vencedor(confronto.getOrigemUm(), desistentes);
         if (dois == null && confronto.getOrigemDois() != null)
-            dois = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois()) : vencedor(confronto.getOrigemDois());
+            dois = confronto.isTerceiroLugar() ? perdedor(confronto.getOrigemDois(), desistentes) : vencedor(confronto.getOrigemDois(), desistentes);
+        if (um != null && desistentes.contains(um.getId())) um = null;
+        if (dois != null && desistentes.contains(dois.getId())) dois = null;
         if (um == null) return dois;
         if (dois == null) return um;
+        if (!confronto.getPartidas().isEmpty() && confronto.getPartidas().stream().allMatch(p -> p.isFinalizada()
+                || (p.isWo() && p.getStatus() == StatusPartida.CANCELADA))
+                && confronto.getPartidas().stream().anyMatch(Partida::isWo)) {
+            return confronto.getPartidas().stream().filter(p -> p.isWo() && p.isFinalizada())
+                    .map(Partida::vencedor).filter(Objects::nonNull).findFirst().orElse(null);
+        }
         int esperado = switch (confronto.getTipo()) {
             case JOGO_UNICO -> 1;
             case IDA_E_VOLTA -> 2;

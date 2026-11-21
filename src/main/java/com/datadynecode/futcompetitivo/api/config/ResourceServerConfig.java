@@ -34,10 +34,17 @@ public class ResourceServerConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(HttpMethod.GET, "/jogadores/{id}/estatisticas").permitAll()
+                .requestMatchers(HttpMethod.GET, "/campeonatos/{id}/eventos").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}",
                         "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/organizacoes").authenticated()
+                .requestMatchers(HttpMethod.POST, "/campeonatos/{id}/iniciar/grupos", "/campeonatos/{id}/iniciar/liga-parcial/manual",
+                        "/campeonatos/{id}/iniciar/eliminatorio/manual").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/campeonatos/{id}/mata-mata",
+                        "/campeonatos/{id}/rodadas/{rodadaId}/iniciar",
+                        "/campeonatos/{id}/participantes/{participanteId}/desistir").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/campeonatos/{id}/mata-mata/vagas").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/jogadores/{id}/ativar", "/equipes/{id}/ativar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/jogadores/{id}", "/equipes/{id}").authenticated()
                 .anyRequest().permitAll())
@@ -62,7 +69,7 @@ public class ResourceServerConfig {
         configuration.setAllowedOrigins(Arrays.stream(origins.split(","))
             .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Last-Event-ID"));
         configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

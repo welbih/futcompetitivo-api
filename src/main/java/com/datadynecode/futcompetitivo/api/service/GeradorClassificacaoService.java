@@ -11,7 +11,8 @@ public class GeradorClassificacaoService {
     // Cada rodada recebe um novo snapshot; as estatísticas anteriores nunca são alteradas.
     public Classificacao gerar(List<Participante> participantes, List<Partida> partidasAcumuladas,
             int rodada, Classificacao anterior) {
-        return gerar(participantes, partidasAcumuladas, rodada, anterior, false);
+        // A ordem inicial foi sorteada ao iniciar o campeonato e permanece estavel nos recalculos.
+        return gerar(participantes, partidasAcumuladas, rodada, anterior, true);
     }
 
     public Classificacao gerarComSorteioInicial(List<Participante> participantes, List<Partida> partidasAcumuladas,

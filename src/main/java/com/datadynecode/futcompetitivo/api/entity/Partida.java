@@ -32,6 +32,9 @@ public class Partida {
     @Enumerated(EnumType.STRING)
     private StatusPartida status = StatusPartida.AGENDADA;
 
+    @Column(nullable = false)
+    private boolean wo;
+
     public Partida(Participante mandante, Participante visitante) {
         this.mandante = mandante;
         this.visitante = visitante;

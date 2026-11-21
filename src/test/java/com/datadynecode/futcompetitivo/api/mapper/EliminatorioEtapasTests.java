@@ -12,7 +12,8 @@ import static org.mockito.Mockito.mock;
 
 class EliminatorioEtapasTests {
     private final CampeonatoMapper mapper = new CampeonatoMapper(
-            mock(ParticipanteMapper.class), mock(OrganizacaoMapper.class));
+            mock(ParticipanteMapper.class), mock(OrganizacaoMapper.class),
+            mock(com.datadynecode.futcompetitivo.api.service.ClassificacaoAtualService.class));
     private final GeradorEliminatorioService gerador = new GeradorEliminatorioService(new ConfrontoService());
 
     @ParameterizedTest

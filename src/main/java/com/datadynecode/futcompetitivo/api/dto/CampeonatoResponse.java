@@ -5,5 +5,12 @@ import java.util.List;
 
 public record CampeonatoResponse(Long id, OrganizacaoResponse organizacao, Integer edicao,
         CampeonatoStatus status, List<ParticipanteResponse> participantes,
-        List<FaseResponse> fases, List<ClassificacaoResponse> classificacaoPorRodada) {
+        List<FaseResponse> fases, List<ClassificacaoResponse> classificacaoPorRodada,
+        List<Long> participantesDesistentes, boolean aguardandoMataMata, java.util.Map<Long, Long> substituicoesMataMata,
+        ClassificacaoResponse classificacaoAtual) {
+    public CampeonatoResponse(Long id, OrganizacaoResponse organizacao, Integer edicao,
+            CampeonatoStatus status, List<ParticipanteResponse> participantes, List<FaseResponse> fases,
+            List<ClassificacaoResponse> classificacaoPorRodada) {
+        this(id, organizacao, edicao, status, participantes, fases, classificacaoPorRodada, List.of(), false, java.util.Map.of(),null);
+    }
 }

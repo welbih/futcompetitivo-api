@@ -28,7 +28,9 @@ class TerceiroLugarServiceTests {
     @CsvSource({"4,JOGO_UNICO,ELIMINATORIO", "5,JOGO_UNICO,ELIMINATORIO", "8,JOGO_UNICO,ELIMINATORIO",
             "4,IDA_E_VOLTA,ELIMINATORIO", "5,IDA_E_VOLTA,ELIMINATORIO", "8,IDA_E_VOLTA,ELIMINATORIO",
             "4,IDA_E_VOLTA_FINAL_UNICA,ELIMINATORIO", "5,IDA_E_VOLTA_FINAL_UNICA,ELIMINATORIO",
-            "8,IDA_E_VOLTA_FINAL_UNICA,ELIMINATORIO", "6,JOGO_UNICO,MISTA", "6,JOGO_UNICO,GRUPOS"})
+            "8,IDA_E_VOLTA_FINAL_UNICA,ELIMINATORIO", "6,JOGO_UNICO,MISTA", "6,JOGO_UNICO,GRUPOS",
+            "6,IDA_E_VOLTA,MISTA", "6,IDA_E_VOLTA,GRUPOS",
+            "6,IDA_E_VOLTA_FINAL_UNICA,MISTA", "6,IDA_E_VOLTA_FINAL_UNICA,GRUPOS"})
     void disputaEntrePerdedoresDasSemifinaisESoEncerraAposAsDuasDecisoes(int quantidade, FormatoEliminatorio modo, TipoFormato formato) {
         var campeonato = iniciar(quantidade, modo, formato);
         Long id = campeonato.id();
@@ -38,7 +40,7 @@ class TerceiroLugarServiceTests {
             if (fase.tipo() == TipoFase.ELIMINATORIA && rodada.id().equals(fase.rodadas().getLast().id())) break;
             preencher(id, rodada, fase, false);
             recarregar();
-            campeonato = service.buscar(id);
+            campeonato = solicitarAvanco(id);
         }
         var fase = campeonato.fases().getLast();
         var rodada = fase.rodadas().getLast();
@@ -56,20 +58,20 @@ class TerceiroLugarServiceTests {
                 .forEach(c -> perdedores.add(partidas(id, c).getFirst().visitante().id()));
         assertEquals(perdedores, Set.of(terceiro.participanteUmId(), terceiro.participanteDoisId()));
         assertTrue(Collections.disjoint(perdedores, Set.of(finalConfronto.participanteUmId(), finalConfronto.participanteDoisId())));
-        assertEquals(modo == FormatoEliminatorio.JOGO_UNICO ? 1 : 2, partidas(id, terceiro).size());
+        assertEquals(modo == FormatoEliminatorio.IDA_E_VOLTA ? 2 : 1, partidas(id, terceiro).size());
         assertEquals(modo == FormatoEliminatorio.IDA_E_VOLTA ? 2 : 1, partidas(id, finalConfronto).size());
 
         preencherConfronto(id, rodada.id(), finalConfronto, false);
-        assertEquals(CampeonatoStatus.EM_ANDAMENTO, service.buscar(id).status());
+        assertEquals(CampeonatoStatus.EM_ANDAMENTO, solicitarAvanco(id).status());
         assertThrows(RegraCampeonatoException.class, () -> service.terceiroLugar(id));
         boolean manual = quantidade % 2 != 0;
         preencherConfronto(id, rodada.id(), terceiro, manual);
         if (manual) {
-            assertEquals(CampeonatoStatus.EM_ANDAMENTO, service.buscar(id).status());
+            assertEquals(CampeonatoStatus.EM_ANDAMENTO, solicitarAvanco(id).status());
             service.finalizarRodada(id, rodada.id());
         }
         recarregar();
-        assertEquals(CampeonatoStatus.FINALIZADO, service.buscar(id).status());
+        assertEquals(CampeonatoStatus.FINALIZADO, solicitarAvanco(id).status());
         assertEquals(finalConfronto.participanteUmId(), service.vencedor(id).id());
         assertEquals(terceiro.participanteUmId(), service.terceiroLugar(id).id());
         var decisiva = partidas(id, terceiro).getLast();
@@ -85,12 +87,12 @@ class TerceiroLugarServiceTests {
         var fase = campeonato.fases().getFirst();
         var semifinal = fase.rodadas().getFirst();
         preencher(campeonato.id(), semifinal, fase, false);
-        var faseFinal = service.buscar(campeonato.id()).fases().getFirst();
+        var faseFinal = solicitarAvanco(campeonato.id()).fases().getFirst();
         var bronze = faseFinal.confrontos().stream().filter(ConfrontoResponse::terceiroLugar).findFirst().orElseThrow();
         service.registrarResultado(campeonato.id(), partidas(campeonato.id(), bronze).getFirst().id(), placar(1, 0));
         assertThrows(RegraCampeonatoException.class, () -> service.registrarResultado(campeonato.id(),
                 semifinal.partidas().getFirst().id(), placar(0, 2)));
-        assertEquals(CampeonatoStatus.EM_ANDAMENTO, service.buscar(campeonato.id()).status());
+        assertEquals(CampeonatoStatus.EM_ANDAMENTO, solicitarAvanco(campeonato.id()).status());
     }
 
     private void preencher(Long id, RodadaResponse rodada, FaseResponse fase, boolean manual) {
@@ -114,7 +116,7 @@ class TerceiroLugarServiceTests {
     }
 
     private List<PartidaResponse> partidas(Long campeonatoId, ConfrontoResponse confronto) {
-        var todas = service.buscar(campeonatoId).fases().stream().flatMap(f -> f.rodadas().stream())
+        var todas = solicitarAvanco(campeonatoId).fases().stream().flatMap(f -> f.rodadas().stream())
                 .flatMap(r -> r.partidas().stream()).collect(java.util.stream.Collectors.toMap(PartidaResponse::id, p -> p));
         return confronto.partidaIds().stream().map(id -> Objects.requireNonNull(todas.get(id))).toList();
     }
@@ -128,11 +130,15 @@ class TerceiroLugarServiceTests {
         }
         var criado = service.criar(new CampeonatoRequest(org.id(), 2026, participantes));
         service.iniciar(criado.id(), new IniciarCampeonatoRequest(formato, false, null, null,
-                formato == TipoFormato.ELIMINATORIO ? null : 4, formato == TipoFormato.ELIMINATORIO ? modo : null, true));
+                formato == TipoFormato.ELIMINATORIO ? null : 4, modo, true));
         recarregar();
-        return service.buscar(criado.id());
+        return solicitarAvanco(criado.id());
     }
 
     private ResultadoRequest placar(int casa, int fora) { return new ResultadoRequest(casa, fora, null, null, false); }
     private void recarregar() { em.flush(); em.clear(); }
+    // A simulacao solicita o avanco explicitamente antes de consultar a proxima etapa.
+    private CampeonatoResponse solicitarAvanco(Long id) {
+        return com.datadynecode.futcompetitivo.api.suporte.AvancoEliminatorio.solicitar(service, id);
+    }
 }

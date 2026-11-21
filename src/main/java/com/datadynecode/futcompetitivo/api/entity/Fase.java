@@ -25,12 +25,16 @@ public class Fase {
     private Integer quantidadeClassificados;
     @Enumerated(EnumType.STRING)
     private FormatoEliminatorio formatoEliminatorio;
+    @Enumerated(EnumType.STRING)
+    private FormaGeracaoMataMata formaGeracaoMataMata;
     @Column(nullable = false)
     private boolean disputaTerceiroLugar;
+    @Column(nullable = false)
+    private boolean confrontosManuais;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "fase_id")
-    @OrderBy("nome ASC")
+    @OrderBy("id ASC")
     private List<Grupo> grupos = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)

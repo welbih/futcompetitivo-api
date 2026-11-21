@@ -17,6 +17,8 @@ public class Classificacao {
     @SequenceGenerator(name = "classificacao_seq", sequenceName = "classificacao_seq", allocationSize = 50)
     private Long id;
     private int rodada;
+    @Transient
+    private boolean parcial;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "classificacao_id")
