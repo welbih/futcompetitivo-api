@@ -33,6 +33,10 @@ Cada pacote possui um `package-info.java` com sua responsabilidade. Adicione as 
 
 ## Avanco e desistencias
 
+`PATCH /campeonatos/{id}/identificacao` permite ao ADMIN corrigir organizacao e
+edicao em qualquer status, preservando a competicao. Veja
+[contrato e regras](docs/identificacao-campeonato.md).
+
 `GET /campeonatos/{id}/eventos` disponibiliza SSE publico para notificacoes
 apos commit. Veja [eventos, EventSource, proxy e limitacao a uma instancia](docs/eventos-campeonatos.md).
 

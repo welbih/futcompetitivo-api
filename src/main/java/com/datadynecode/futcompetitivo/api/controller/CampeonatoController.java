@@ -41,6 +41,12 @@ public class CampeonatoController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/identificacao")
+    public CampeonatoResponse alterarIdentificacao(@PathVariable Long id,
+            @Valid @RequestBody IdentificacaoCampeonatoRequest request) {
+        return service.alterarIdentificacao(id, request);
+    }
+
     @PostMapping("/{id}/iniciar")
     public CampeonatoResponse iniciar(@PathVariable Long id, @Valid @RequestBody IniciarCampeonatoRequest request) {
         return service.iniciar(id, request);

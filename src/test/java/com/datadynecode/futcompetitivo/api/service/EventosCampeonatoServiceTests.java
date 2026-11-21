@@ -180,6 +180,35 @@ class EventosCampeonatoServiceTests {
         assertEquals(MotivoAtualizacaoCampeonato.MATA_MATA_INICIADO,unico().motivo());
     }
 
+    @Test
+    void identificacaoNotificaAposCommitMasNaoEmNoopOuRollback() {
+        var c=iniciar(4,TipoFormato.LIGA);
+        var destino=organizacoes.criar(new OrganizacaoRequest("Identificacao SSE",true));
+        reset(sse);
+        var request=new IdentificacaoCampeonatoRequest(destino.id(),5);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.alterarIdentificacao(c.id(),request);
+            verifyNoInteractions(sse);
+        });
+        var evento=unico();
+        assertEquals(c.id(),evento.campeonatoId());
+        assertEquals(MotivoAtualizacaoCampeonato.CAMPEONATO_ALTERADO,evento.motivo());
+        assertNull(evento.rodadaId()); assertNull(evento.partidaId());
+        reset(sse);
+        service.alterarIdentificacao(c.id(),request);
+        verifyNoInteractions(sse);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.alterarIdentificacao(c.id(),new IdentificacaoCampeonatoRequest(c.organizacao().id(),6));
+            status.setRollbackOnly();
+        });
+        verifyNoInteractions(sse);
+        assertEquals(destino.id(),service.buscar(c.id()).organizacao().id());
+        assertEquals(5,service.buscar(c.id()).edicao());
+        var inativa=organizacoes.criar(new OrganizacaoRequest("Rejeitada SSE",false));
+        assertThrows(RegraCampeonatoException.class,()->service.alterarIdentificacao(c.id(),new IdentificacaoCampeonatoRequest(inativa.id(),7)));
+        verifyNoInteractions(sse);
+    }
+
     private EventoCampeonatoResponse unico() {
         var captor=ArgumentCaptor.forClass(EventoCampeonatoResponse.class);
         verify(sse,times(1)).publicar(captor.capture());

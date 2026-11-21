@@ -38,6 +38,7 @@ public class ResourceServerConfig {
                 .requestMatchers(HttpMethod.DELETE, "/x1/{id}", "/campeonatos/{id}",
                         "/jogadores/{id}", "/equipes/{id}", "/organizacoes/{id}").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/organizacoes/{id}").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/campeonatos/{id}/identificacao").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/organizacoes").authenticated()
                 .requestMatchers(HttpMethod.POST, "/campeonatos/{id}/iniciar/grupos", "/campeonatos/{id}/iniciar/liga-parcial/manual",
                         "/campeonatos/{id}/iniciar/eliminatorio/manual").hasRole("ADMIN")

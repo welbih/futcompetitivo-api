@@ -119,6 +119,30 @@ class FlywayMigrationTests {
 
     @Test
     @Transactional
+    void corrigeIdentificacaoNoPostgresPreservandoCompeticao() {
+        var participantes=new ArrayList<ParticipanteRequest>();
+        for(int i=0;i<4;i++) {
+            var j=jogadores.criar(new JogadorRequest("Identificacao PG "+i,null));
+            var e=equipes.criar(new EquipeRequest("Equipe PG "+i,"https://example.com/logo.png"));
+            participantes.add(new ParticipanteRequest(j.id(),e.id()));
+        }
+        var c=campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Origem PG",true)).id(),1,participantes));
+        var inicio=campeonatos.iniciar(c.id(),new IniciarCampeonatoRequest(TipoFormato.LIGA,false,null,null));
+        campeonatos.registrarResultado(c.id(),inicio.fases().getFirst().rodadas().getFirst().partidas().getFirst().id(),
+                new ResultadoRequest(2,1,null,null,false));
+        var antes=campeonatos.buscar(c.id());
+        var destino=organizacoes.criar(new OrganizacaoRequest("Destino PG",true));
+        var corrigido=campeonatos.alterarIdentificacao(c.id(),new IdentificacaoCampeonatoRequest(destino.id(),Integer.MAX_VALUE));
+        entityManager.flush(); entityManager.clear();
+        assertEquals(corrigido,campeonatos.buscar(c.id()));
+        assertEquals(antes.fases(),corrigido.fases()); assertEquals(antes.participantes(),corrigido.participantes());
+        assertEquals(antes.classificacaoAtual(),corrigido.classificacaoAtual()); assertEquals(antes.status(),corrigido.status());
+        organizacoes.desativar(destino.id());
+        assertEquals(5,campeonatos.alterarIdentificacao(c.id(),new IdentificacaoCampeonatoRequest(destino.id(),5)).edicao());
+    }
+
+    @Test
+    @Transactional
     void persisteLigaParcialComMataMataEAgendaManual() {
         var lista=new ArrayList<ParticipanteRequest>();
         for(int i=0;i<4;i++) {

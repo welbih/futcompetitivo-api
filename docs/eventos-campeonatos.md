@@ -51,7 +51,7 @@ e chaveamento. Nao tente aplicar diferencas usando apenas `motivo`.
 | Motivo | Operacao |
 | --- | --- |
 | `CAMPEONATO_CRIADO` | Cadastro do campeonato. Normalmente ainda nao existem assinantes. |
-| `CAMPEONATO_ALTERADO` | Edicao de participantes/configuracoes permitidas enquanto `CRIADO`. |
+| `CAMPEONATO_ALTERADO` | Edicao de participantes/configuracoes permitidas enquanto `CRIADO`, ou correcao efetiva de organizacao/edicao pelo PATCH de identificacao em qualquer status. |
 | `CAMPEONATO_INICIADO` | Inicio normal ou com grupos, liga parcial ou confrontos eliminatorios manuais. |
 | `RESULTADO_ALTERADO` | Inclusao/correcao individual de resultado ou alteracao da URL de video. Inclui avanco automatico decorrente desse resultado. |
 | `RESULTADOS_ALTERADOS` | Registro de resultados em lote, com `rodadaId` e `partidaId: null`. |

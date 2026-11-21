@@ -59,6 +59,23 @@ public class CampeonatoService {
     }
 
     @Transactional
+    public CampeonatoResponse alterarIdentificacao(Long id, IdentificacaoCampeonatoRequest request) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        exigir(request != null && request.organizacaoId() != null && request.organizacaoId() > 0
+                && request.edicao() != null && request.edicao() > 0,
+                "Informe uma organização e uma edição inteira positiva.");
+        var organizacao = organizacaoRepository.findById(request.organizacaoId())
+                .orElseThrow(() -> naoEncontrado("Organização", request.organizacaoId()));
+        boolean organizacaoAlterada = !campeonato.getOrganizacao().getId().equals(organizacao.getId());
+        exigir(!organizacaoAlterada || organizacao.isAtivo(), "A nova organização deve estar ativa.");
+        if (!organizacaoAlterada && Objects.equals(campeonato.getEdicao(), request.edicao()))
+            return mapper.toResponse(campeonato);
+        campeonato.setOrganizacao(organizacao);
+        campeonato.setEdicao(request.edicao());
+        return salvarNotificando(campeonato, MotivoAtualizacaoCampeonato.CAMPEONATO_ALTERADO);
+    }
+
+    @Transactional
     public CampeonatoResponse iniciar(Long id, IniciarCampeonatoRequest request) {
         Campeonato campeonato = buscarParaAtualizar(id);
         validarInicio(campeonato);
