@@ -58,6 +58,10 @@ prematura, repetida ou em formato incompativel retorna `400`.
 
 ## Desistencia de um participante
 
+O ADMIN tambem pode retirar uma desistencia por
+`DELETE /campeonatos/{id}/participantes/{participanteId}/desistencia`.
+Veja [reversao de W.O., reabertura e limites de dependencia](cancelar-desistencia.md).
+
 ```http
 POST /campeonatos/{id}/participantes/{participanteId}/desistir
 Authorization: Bearer <token-admin>

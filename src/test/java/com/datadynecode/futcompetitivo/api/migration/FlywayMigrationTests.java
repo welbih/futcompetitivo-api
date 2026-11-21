@@ -110,6 +110,24 @@ class FlywayMigrationTests {
     }
 
     @Test
+    @Transactional
+    void persisteRetiradaDeDesistenciaEResetaResultadosWoNoPostgres() {
+        var lista=new ArrayList<ParticipanteRequest>();
+        for(int i=0;i<4;i++) {
+            var j=jogadores.criar(new JogadorRequest("Retorno PG "+i,null));
+            var e=equipes.criar(new EquipeRequest("Equipe retorno "+i,"https://example.com/logo.png"));
+            lista.add(new ParticipanteRequest(j.id(),e.id()));
+        }
+        var c=campeonatos.criar(new CampeonatoRequest(organizacoes.criar(new OrganizacaoRequest("Retorno PG",true)).id(),1,lista));
+        var antes=campeonatos.iniciar(c.id(),new IniciarCampeonatoRequest(TipoFormato.LIGA,false,null,null));
+        Long participante=antes.fases().getFirst().rodadas().getFirst().partidas().getFirst().mandante().id();
+        campeonatos.desistirParticipante(c.id(),participante); entityManager.flush(); entityManager.clear();
+        assertFalse(campeonatos.buscar(c.id()).participantesDesistentes().isEmpty());
+        campeonatos.cancelarDesistencia(c.id(),participante); entityManager.flush(); entityManager.clear();
+        assertEquals(antes,campeonatos.buscar(c.id()));
+    }
+
+    @Test
     void aplicaTodasAsVersoesEReexecutaSemRepetirMigracoes() {
         assertEquals(15, flyway.info().applied().length);
         assertEquals(0, flyway.info().pending().length);

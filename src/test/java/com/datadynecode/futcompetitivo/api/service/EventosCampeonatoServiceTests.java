@@ -209,6 +209,25 @@ class EventosCampeonatoServiceTests {
         verifyNoInteractions(sse);
     }
 
+    @Test
+    void retiradaDeDesistenciaNotificaSoAposCommitENaoEmRollbackOuRepeticao() {
+        var c=iniciar(6,TipoFormato.LIGA);
+        Long participante=c.fases().getFirst().rodadas().getFirst().partidas().getFirst().mandante().id();
+        var desistiu=service.desistirParticipante(c.id(),participante); reset(sse);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.cancelarDesistencia(c.id(),participante); verifyNoInteractions(sse); status.setRollbackOnly();
+        });
+        verifyNoInteractions(sse); assertEquals(desistiu,service.buscar(c.id()));
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.cancelarDesistencia(c.id(),participante); verifyNoInteractions(sse);
+        });
+        var evento=unico();
+        assertEquals(c.id(),evento.campeonatoId()); assertEquals(MotivoAtualizacaoCampeonato.DESISTENCIA_CANCELADA,evento.motivo());
+        reset(sse); service.cancelarDesistencia(c.id(),participante); verifyNoInteractions(sse);
+        assertThrows(RegraCampeonatoException.class,()->service.cancelarDesistencia(c.id(),Long.MAX_VALUE));
+        verifyNoInteractions(sse);
+    }
+
     private EventoCampeonatoResponse unico() {
         var captor=ArgumentCaptor.forClass(EventoCampeonatoResponse.class);
         verify(sse,times(1)).publicar(captor.capture());

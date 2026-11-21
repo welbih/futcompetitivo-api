@@ -96,6 +96,11 @@ public class CampeonatoController {
         return service.desistirParticipante(id, participanteId);
     }
 
+    @DeleteMapping("/{id}/participantes/{participanteId}/desistencia")
+    public CampeonatoResponse cancelarDesistencia(@PathVariable Long id, @PathVariable Long participanteId) {
+        return service.cancelarDesistencia(id, participanteId);
+    }
+
     @PutMapping("/{id}/partidas/{partidaId}/resultado")
     public CampeonatoResponse registrarResultado(@PathVariable Long id, @PathVariable Long partidaId,
             @Valid @RequestBody ResultadoRequest request) {

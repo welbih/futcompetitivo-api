@@ -59,6 +59,7 @@ e chaveamento. Nao tente aplicar diferencas usando apenas `motivo`.
 | `RODADA_FINALIZADA` | Encerramento explicitamente solicitado de uma rodada, incluindo suas consequencias automaticas. |
 | `MATA_MATA_INICIADO` | Criacao da fase eliminatoria apos a classificatoria, incluindo substituicoes de classificados e confrontos manuais enviados nessa operacao. |
 | `DESISTENCIA_REGISTRADA` | Desistencia e aplicacao/ajuste de W.O., inclusive empate de dois desistentes e eventuais finalizacoes/avancos automaticos. |
+| `DESISTENCIA_CANCELADA` | Retirada da desistencia, incluindo reversao/ajuste de W.O., reabertura de rodadas e atualizacao das classificacoes. |
 | `CAMPEONATO_EXCLUIDO` | Exclusao confirmada; usa o evento especifico abaixo. |
 
 Para exclusao:

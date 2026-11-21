@@ -219,6 +219,99 @@ public class CampeonatoService {
         return mapper.toResponse(repository.saveAndFlush(campeonato));
     }
 
+    @Transactional
+    public CampeonatoResponse cancelarDesistencia(Long id, Long participanteId) {
+        Campeonato campeonato = buscarParaAtualizar(id);
+        exigir(campeonato.getParticipantes().stream().anyMatch(p -> p.getId().equals(participanteId)),
+                "Participante não pertence ao campeonato.");
+        if (!campeonato.getParticipantesDesistentes().contains(participanteId)) return mapper.toResponse(campeonato);
+        exigir(!campeonato.getSubstituicoesMataMata().containsKey(participanteId),
+                "O participante já foi substituído na chave do mata-mata; a desistência não pode ser retirada.");
+
+        Map<Fase, List<Rodada>> afetadas = new LinkedHashMap<>();
+        for (Fase fase : campeonato.getFases()) {
+            var rodadasAfetadas = fase.getRodadas().stream().filter(r -> r.getPartidas().stream()
+                    .anyMatch(p -> woDoParticipante(p, participanteId))).toList();
+            validarCancelamentoDesistencia(campeonato, fase, participanteId, rodadasAfetadas);
+            if (!rodadasAfetadas.isEmpty()) afetadas.put(fase, rodadasAfetadas);
+        }
+
+        campeonato.getParticipantesDesistentes().remove(participanteId);
+        for (var entrada : afetadas.entrySet()) {
+            Fase fase = entrada.getKey();
+            Integer reabrirDesde = null;
+            for (Rodada rodada : entrada.getValue()) {
+                for (Partida partida : rodada.getPartidas()) {
+                    if (!woDoParticipante(partida, participanteId)) continue;
+                    boolean mandanteDesistente = campeonato.getParticipantesDesistentes().contains(partida.getMandante().getId());
+                    boolean visitanteDesistente = campeonato.getParticipantesDesistentes().contains(partida.getVisitante().getId());
+                    if (mandanteDesistente || visitanteDesistente) {
+                        partida.setResultado(new Resultado(false, mandanteDesistente ? 0 : 3, visitanteDesistente ? 0 : 3, null, null));
+                    } else {
+                        partida.setResultado(null);
+                        partida.setWo(false);
+                        partida.setStatus(StatusPartida.AGENDADA);
+                        reabrirDesde = reabrirDesde == null ? rodada.getNumero() : Math.min(reabrirDesde, rodada.getNumero());
+                    }
+                }
+            }
+            if (reabrirDesde != null) {
+                int primeira = Math.min(reabrirDesde, fase.getRodadas().stream()
+                        .filter(r -> r.getStatus() == RodadaStatus.EM_ANDAMENTO)
+                        .mapToInt(Rodada::getNumero).min().orElse(reabrirDesde));
+                for (Rodada rodada : fase.getRodadas()) if (rodada.getNumero() >= primeira)
+                    rodada.setStatus(rodada.getNumero() == primeira ? RodadaStatus.EM_ANDAMENTO : RodadaStatus.PENDENTE);
+                campeonato.setStatus(CampeonatoStatus.EM_ANDAMENTO);
+                if (fase.getQuantidadeClassificados() != null) campeonato.getClassificadosBase().clear();
+            }
+            int desde = entrada.getValue().stream().mapToInt(Rodada::getNumero).min().orElseThrow();
+            if (fase.getTipo() == TipoFase.GRUPOS) classificacaoGrupos.recalcular(fase, desde);
+            else if (fase.getTipo() != TipoFase.ELIMINATORIA) recalcularClassificacoes(campeonato, fase.getRodadas(), desde);
+        }
+        return salvarNotificando(campeonato, MotivoAtualizacaoCampeonato.DESISTENCIA_CANCELADA);
+    }
+
+    private boolean woDoParticipante(Partida partida, Long participanteId) {
+        return partida.isWo() && partida.isFinalizada()
+                && (partida.getMandante().getId().equals(participanteId) || partida.getVisitante().getId().equals(participanteId));
+    }
+
+    private void validarCancelamentoDesistencia(Campeonato campeonato, Fase fase, Long participanteId, List<Rodada> afetadas) {
+        if (!afetadas.isEmpty()) {
+            exigir(fase.getQuantidadeClassificados() == null || campeonato.getFases().size() == 1,
+                    "Os W.O.s da classificatória já deram origem ao mata-mata; a desistência não pode ser retirada.");
+            int primeira = afetadas.stream().mapToInt(Rodada::getNumero).min().orElseThrow();
+            if (fase.getTipo() == TipoFase.SWISS || fase.getTipo() == TipoFase.ELIMINATORIA) {
+                exigir(fase.getRodadas().stream().filter(r -> r.getNumero() > primeira)
+                                .allMatch(r -> r.getStatus() == RodadaStatus.PENDENTE && r.getPartidas().isEmpty()),
+                        "Já existem pareamentos ou uma etapa posterior do mata-mata; a desistência não pode ser retirada.");
+            } else {
+                int reabrir = afetadas.stream().filter(r -> r.getPartidas().stream().filter(p -> woDoParticipante(p, participanteId))
+                        .anyMatch(p -> !outroParticipanteDesistente(campeonato, p, participanteId)))
+                        .mapToInt(Rodada::getNumero).min().orElse(Integer.MAX_VALUE);
+                exigir(fase.getRodadas().stream().filter(r -> r.getNumero() > reabrir)
+                                .flatMap(r -> r.getPartidas().stream()).noneMatch(p -> p.isFinalizada() && !p.isWo()),
+                        "Há jogos disputados em rodadas posteriores ao W.O.; a desistência não pode ser retirada.");
+            }
+        } else if (fase.getTipo() == TipoFase.ELIMINATORIA) {
+            // Avancos por folga ou por resultado ja disputado tambem dependem da elegibilidade do desistente.
+            int ultima = fase.getRodadas().stream().filter(r -> r.getPartidas().stream()
+                    .anyMatch(p -> p.getMandante().getId().equals(participanteId) || p.getVisitante().getId().equals(participanteId)))
+                    .mapToInt(Rodada::getNumero).max().orElse(1);
+            boolean presente = fase.getConfrontos().stream().anyMatch(c ->
+                    (c.getParticipanteUm() != null && c.getParticipanteUm().getId().equals(participanteId))
+                    || (c.getParticipanteDois() != null && c.getParticipanteDois().getId().equals(participanteId)));
+            exigir(!presente || fase.getRodadas().stream().filter(r -> r.getNumero() > ultima)
+                            .allMatch(r -> r.getStatus() == RodadaStatus.PENDENTE && r.getPartidas().isEmpty()),
+                    "A chave já avançou após a participação do desistente; a desistência não pode ser retirada.");
+        }
+    }
+
+    private boolean outroParticipanteDesistente(Campeonato campeonato, Partida partida, Long participanteId) {
+        Long outro = partida.getMandante().getId().equals(participanteId) ? partida.getVisitante().getId() : partida.getMandante().getId();
+        return campeonato.getParticipantesDesistentes().contains(outro);
+    }
+
     private Set<Rodada> aplicarWo(Campeonato campeonato) {
         Set<Rodada> alteradas = new HashSet<>();
         for (Rodada rodada : rodadas(campeonato)) {
