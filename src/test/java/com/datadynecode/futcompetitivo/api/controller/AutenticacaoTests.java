@@ -103,6 +103,7 @@ class AutenticacaoTests {
         }
         verificarPermissoesOrganizacao(token, tokenAdmin);
         verificarPermissoesGruposManuais(token, tokenAdmin);
+        verificarIdentificacaoCampeonato(token, tokenAdmin);
         assertEquals(400, login("errada", "segredo").statusCode());
         assertEquals(401, login("Usuario123!", "errado").statusCode());
         assertEquals(204, enviar("POST", "/auth/logout", "", null, "Bearer " + token).statusCode());
@@ -110,6 +111,41 @@ class AutenticacaoTests {
         assertEquals(200, enviar("GET", "/usuarios", null, null, null).statusCode());
         assertEquals(204, enviar("PATCH", "/usuarios/" + usuario.getId() + "/inativar", "", null, null).statusCode());
         assertEquals(400, login("Usuario123!", "segredo").statusCode());
+    }
+
+    private void verificarIdentificacaoCampeonato(String tokenUser, String tokenAdmin) throws Exception {
+        var org=enviar("POST","/organizacoes","{\"nome\":\"Identificacao\",\"ativo\":true}","application/json","Bearer "+tokenAdmin);
+        assertEquals(201,org.statusCode(),org.body());
+        Number organizacaoId=JsonPath.read(org.body(),"$.id");
+        String cadastro="{\"organizacaoId\":"+organizacaoId+",\"edicao\":1,\"participantes\":["
+                +"{\"jogadorId\":1,\"equipeId\":1},{\"jogadorId\":2,\"equipeId\":2},"
+                +"{\"jogadorId\":3,\"equipeId\":3},{\"jogadorId\":4,\"equipeId\":4}]}";
+        var criado=enviar("POST","/campeonatos",cadastro,"application/json","Bearer "+tokenAdmin);
+        assertEquals(201,criado.statusCode(),criado.body());
+        Number id=JsonPath.read(criado.body(),"$.id");
+        String rota="/campeonatos/"+id+"/identificacao";
+        String corpo="{\"organizacaoId\":"+organizacaoId+",\"edicao\":5}";
+        assertEquals(401,enviar("PATCH",rota,corpo,"application/json",null).statusCode());
+        assertEquals(401,enviar("PATCH",rota,corpo,"application/json","Bearer invalido").statusCode());
+        assertEquals(403,enviar("PATCH",rota,corpo,"application/json","Bearer "+tokenUser).statusCode());
+        for(String valor:java.util.List.of("0","-1","1.1","1.0","1e1","\"5\"","2147483648","-2147483649","null","true")) {
+            var invalido=enviar("PATCH",rota,"{\"organizacaoId\":"+organizacaoId+",\"edicao\":"+valor+"}","application/json","Bearer "+tokenAdmin);
+            assertEquals(400,invalido.statusCode(),invalido.body());
+            assertTrue(invalido.headers().firstValue("Content-Type").orElseThrow().contains("application/problem+json"));
+        }
+        for(String invalido:java.util.List.of("{}","{\"edicao\":5}","{\"organizacaoId\":0,\"edicao\":5}","{\"organizacaoId\":"+organizacaoId+"}"))
+            assertEquals(400,enviar("PATCH",rota,invalido,"application/json","Bearer "+tokenAdmin).statusCode());
+        assertEquals(404,enviar("PATCH","/campeonatos/9223372036854775807/identificacao",corpo,"application/json","Bearer "+tokenAdmin).statusCode());
+        assertEquals(404,enviar("PATCH",rota,"{\"organizacaoId\":9223372036854775807,\"edicao\":5}","application/json","Bearer "+tokenAdmin).statusCode());
+        var limite=enviar("PATCH",rota,"{\"organizacaoId\":"+organizacaoId+",\"edicao\":2147483647}","application/json","Bearer "+tokenAdmin);
+        assertEquals(200,limite.statusCode(),limite.body());
+        assertEquals(Integer.MAX_VALUE,(int)JsonPath.read(limite.body(),"$.edicao"));
+        var atualizado=enviar("PATCH",rota,corpo,"application/json","Bearer "+tokenAdmin);
+        assertEquals(200,atualizado.statusCode(),atualizado.body());
+        assertEquals(5,(int)JsonPath.read(atualizado.body(),"$.edicao"));
+        assertEquals("CRIADO",JsonPath.read(atualizado.body(),"$.status"));
+        assertEquals((Object)JsonPath.read(criado.body(),"$.participantes"),JsonPath.read(atualizado.body(),"$.participantes"));
+        assertEquals(atualizado.body(),enviar("PATCH",rota,corpo,"application/json","Bearer "+tokenAdmin).body());
     }
 
     private void verificarPermissoesGruposManuais(String tokenUser, String tokenAdmin) throws Exception {
